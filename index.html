@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Presupuestos</title>
+  <!-- Favicon: isotipo propio (documento + $) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23185FA5'/%3E%3Crect x='20' y='14' width='24' height='30' rx='3' fill='white'/%3E%3Crect x='24' y='20' width='16' height='2.5' rx='1' fill='%23185FA5'/%3E%3Crect x='24' y='26' width='16' height='2.5' rx='1' fill='%23185FA5'/%3E%3Crect x='24' y='32' width='10' height='2.5' rx='1' fill='%23185FA5'/%3E%3Ccircle cx='40' cy='42' r='9' fill='%23185FA5' stroke='white' stroke-width='2'/%3E%3Ctext x='40' y='46' font-family='Arial' font-size='11' font-weight='bold' fill='white' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- SheetJS for Excel Import/Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Custom scrollbar for large tables */
+    .table-scroll::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    .table-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    .table-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    .table-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Table input adjustments */
+    .cell-input {
+      width: 100%;
+      padding: 0.35rem 0.4rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 0.375rem;
+      font-size: 0.8125rem;
+      transition: all 0.15s ease-in-out;
+      background-color: #ffffff;
+    }
+    .cell-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Computed Readonly inputs */
+    .cell-readonly {
+      background-color: #f0fdf4 !important;
+      color: #166534 !important;
+      font-weight: 600;
+      border-color: #bbf7d0 !important;
+    }
+
+    .cell-readonly-highlight {
+      background-color: #eff6ff !important;
+      color: #1e40af !important;
+      font-weight: 700;
+      border-color: #bfdbfe !important;
+    }
+
+    /* Print styling rules */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background: white;
+        padding: 0;
+      }
+      .shadow-card {
+        box-shadow: none !important;
+        border: 1px solid #ccc;
+      }
+      .cell-input {
+        border: none;
+        background: transparent !important;
+      }
+    }
+
+    /* ---- Micro-interacciones ---- */
+
+    /* Efecto de "presión" sutil al hacer clic en cualquier botón */
+    button:not(:disabled) {
+      transition: transform 0.12s ease-out, background-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+    }
+    button:not(:disabled):active {
+      transform: scale(0.96);
+    }
+
+    /* Transición suave y consistente para filas de la tabla al pasar el mouse */
+    #tbodyPresupuesto tr {
+      transition: background-color 0.2s ease;
+    }
+
+    /* Menús desplegables: aparición con fade + leve deslizamiento, en vez de aparecer de golpe */
+    .dropdown-menu {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+      pointer-events: none;
+      transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      transform-origin: top left;
+    }
+    .dropdown-menu.dropdown-open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    /* Toast: entrada/salida más suave */
+    #toast {
+      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Foco más suave en inputs de metadata y filtros */
+    input, select {
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+    }
+  </style>
+</head>
+<body class="min-h-full flex flex-col text-slate-800">
+
+  <!-- Top Navigation / Header -->
+  <header class="bg-slate-900 text-white shadow-lg no-print">
+    <div class="max-w-[100%] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-4">
+        <div class="shrink-0 w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center shadow-md" aria-hidden="true">
+          <svg viewBox="0 0 64 64" class="w-7 h-7">
+            <rect x="20" y="14" width="24" height="30" rx="3" fill="white"/>
+            <rect x="24" y="20" width="16" height="2.5" rx="1" fill="#185FA5"/>
+            <rect x="24" y="26" width="16" height="2.5" rx="1" fill="#185FA5"/>
+            <rect x="24" y="32" width="10" height="2.5" rx="1" fill="#185FA5"/>
+            <circle cx="40" cy="42" r="9" fill="#185FA5" stroke="white" stroke-width="2"/>
+            <text x="40" y="46" font-family="Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">$</text>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white">Generador de Presupuestos</h1>
+          <p class="text-xs text-slate-400">Cálculo en cascada, márgenes y carga masiva mediante plantilla reducida de Excel</p>
+        </div>
+      </div>
+      <div class="flex items-center flex-wrap gap-2.5">
+        <button onclick="cargarDatosEjemplo()" class="bg-slate-600 hover:bg-slate-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
+          <i class="fa-solid fa-vial"></i> Cargar Datos de Prueba
+        </button>
+
+        <!-- Menú desplegable: Importar -->
+        <div class="relative dropdown-wrapper">
+          <button type="button" onclick="toggleDropdown('dropdownImportar')" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-file-import"></i> Importar <i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i>
+          </button>
+          <div id="dropdownImportar" class="dropdown-menu absolute left-0 mt-1.5 w-60 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+            <label class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors">
+              <i class="fa-solid fa-file-excel text-blue-600 w-4 text-center"></i> Importar Excel / CSV
+              <input type="file" id="inputExcel" accept=".xlsx, .xls, .csv" onchange="importarExcel(event)" class="hidden">
+            </label>
+            <label class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-t border-slate-100" title="Cargar un respaldo JSON previamente guardado">
+              <i class="fa-solid fa-file-import text-blue-600 w-4 text-center"></i> Cargar Backup JSON
+              <input type="file" id="inputBackupJSON" accept=".json,application/json" onchange="cargarBackupJSON(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <!-- Menú desplegable: Exportar -->
+        <div class="relative dropdown-wrapper">
+          <button type="button" onclick="toggleDropdown('dropdownExportar')" class="bg-teal-600 hover:bg-teal-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-file-export"></i> Exportar <i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i>
+          </button>
+          <div id="dropdownExportar" class="dropdown-menu absolute left-0 mt-1.5 w-60 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+            <button type="button" onclick="guardarBackupJSON()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left" title="Guardar respaldo completo en archivo JSON">
+              <i class="fa-solid fa-floppy-disk text-teal-600 w-4 text-center"></i> Respaldo JSON
+            </button>
+            <button type="button" onclick="exportarPDF()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100" title="Generar PDF del presupuesto para enviar al cliente">
+              <i class="fa-solid fa-file-pdf text-teal-600 w-4 text-center"></i> Exportar PDF
+            </button>
+            <button type="button" onclick="exportarCSV()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100">
+              <i class="fa-solid fa-file-csv text-teal-600 w-4 text-center"></i> Exportar CSV
+            </button>
+            <button type="button" onclick="exportarPlantillaMylogic()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100" title="Exportar hoja Excel en formato Mylogic">
+              <i class="fa-solid fa-file-export text-teal-600 w-4 text-center"></i> Plantilla Mylogic
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-grow max-w-[100%] w-full px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Presupuesto Metadata Header -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6 shadow-card">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
+          <input type="text" id="metaCliente" placeholder="Ej: Distribuidora Lopez S.A." class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nº Presupuesto</label>
+          <input type="text" id="metaNumero" value="PRES-2026-001" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Fecha de Emisión</label>
+          <input type="date" id="metaFecha" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Moneda del Presupuesto</label>
+          <select id="metaMoneda" onchange="actualizarMoneda()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+            <option value="$">PESOS ($)</option>
+            <option value="USD">DÓLAR BNA (USD)</option>
+            <option value="DIVISA">DÓLAR DIVISA</option>
+            <option value="EUR">EUROS (€)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-4 pt-4 border-t border-slate-100">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cotizaciones de Referencia ($ por unidad)</label>
+          <button type="button" onclick="actualizarCotizaciones()" id="btnActualizarTC" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" title="Buscar automáticamente las 3 cotizaciones (fuente: BNA / DolarAPI)">
+            <i class="fa-solid fa-rotate" id="iconoActualizarTC"></i> Actualizar Cotizaciones
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Dólar BNA (billete)</label>
+            <input type="number" id="metaTCBNA" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Dólar Divisa (mayorista)</label>
+            <input type="number" id="metaTCDivisa" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+          <div>
+            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Euro</label>
+            <input type="number" id="metaTCEUR" value="1150" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+        </div>
+        <p id="infoCotizacionBNA" class="text-[10px] text-slate-500 mt-1.5"></p>
+      </div>
+    </div>
+
+    <!-- Toolbar for Table -->
+    <div class="flex flex-wrap justify-between items-center gap-3 mb-4 no-print">
+      <div class="flex items-center gap-2">
+        <button onclick="agregarFila()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+          <i class="fa-solid fa-plus"></i> Agregar Ítem
+        </button>
+        <button onclick="agregarMultiplesFilas(5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition">
+          +5 Filas
+        </button>
+      </div>
+
+      <!-- Banner Informativo de Plantilla Reducida -->
+      <div class="hidden md:flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-xs">
+        <i class="fa-solid fa-circle-info"></i>
+        <span><strong>Plantilla Reducida Excel:</strong> Importa columnas <i>CANTIDAD, CODIGO, DETALLE, PRECIO_LISTA, PROVEEDOR</i>.</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="limpiarFiltros()" class="bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium text-xs px-3 py-2 rounded-lg border border-amber-200 transition flex items-center gap-1.5" title="Limpiar todos los filtros aplicados">
+          <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
+        </button>
+        <button onclick="limpiarTodo()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium text-xs px-3 py-2 rounded-lg border border-rose-200 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-trash"></i> Limpiar Todo
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Reemplazo Global -->
+    <div class="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2 no-print">
+      <span class="text-xs font-bold text-purple-800 flex items-center gap-1.5 mr-1">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Reemplazo Global:
+      </span>
+      <select id="globalCampo" onchange="actualizarTipoInputGlobal()" class="text-xs border-purple-300 rounded-lg p-2 border focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+        <option value="col-d1">Descuento 1</option>
+        <option value="col-d2">Descuento 2</option>
+        <option value="col-d3">Descuento 3</option>
+        <option value="col-d4">Descuento 4</option>
+        <option value="col-d5">Descuento 5</option>
+        <option value="col-margen">Margen</option>
+        <option value="col-origen">Proveedor</option>
+      </select>
+      <input type="number" id="globalValor" step="0.01" placeholder="Valor %" class="text-xs border-purple-300 rounded-lg p-2 border w-24 focus:ring-2 focus:ring-purple-500 outline-none">
+      <button onclick="aplicarReemplazoGlobal()" class="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5" title="Aplica el valor solo a las filas visibles según los filtros activos (ej: filtrando por Origen)">
+        <i class="fa-solid fa-check"></i> Aplicar a filas filtradas
+      </button>
+      <button id="btnDeshacerGlobal" onclick="deshacerReemplazoGlobal()" class="hidden bg-slate-600 hover:bg-slate-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5" title="Restaura los valores previos a la última aplicación de reemplazo global">
+        <i class="fa-solid fa-rotate-left"></i> Deshacer
+      </button>
+      <span class="text-[11px] text-purple-700 italic">Filtrá primero por Origen (u otra columna) arriba en la tabla, y luego aplicá el valor solo a esas filas visibles.</span>
+    </div>
+
+    <!-- Table Container -->
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shadow-card">
+      <div class="overflow-x-auto table-scroll">
+        <table id="tablaPresupuesto" class="w-full text-left border-collapse min-w-[1850px]">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-300">
+              <th class="p-2.5 text-center w-10 no-print">#</th>
+              <th class="p-2.5 w-16 text-center">N° Item</th>
+              <th class="p-2.5 w-20 text-center">1. Cantidad</th>
+              <th class="p-2.5 w-28">2. Código</th>
+              <th class="p-2.5 w-64">3. Detalle Artículo</th>
+              <th class="p-2.5 w-40">4. Observaciones</th>
+              <th class="p-2.5 w-32 text-right">5. Precio Lista Prov.</th>
+              <th class="p-2.5 w-20 text-center">Moneda Costo</th>
+              <th class="p-2.5 w-20 text-center">6. Desc 1 %</th>
+              <th class="p-2.5 w-20 text-center">7. Desc 2 %</th>
+              <th class="p-2.5 w-20 text-center">8. Desc 3 %</th>
+              <th class="p-2.5 w-20 text-center">9. Desc 4 %</th>
+              <th class="p-2.5 w-20 text-center">10. Desc 5 %</th>
+              <th class="p-2.5 w-32 text-right bg-emerald-100 text-emerald-800">11. Costo Neto Unit.</th>
+              <th class="p-2.5 w-24 text-center">12. Margen %</th>
+              <th class="p-2.5 w-32 text-right bg-emerald-100 text-emerald-800">13. Precio Venta Unit.</th>
+              <th class="p-2.5 w-36 text-right bg-emerald-100 text-emerald-800">14. Total Precio Venta</th>
+              <th class="p-2.5 w-28">15. Proveedor</th>
+              <th class="p-2.5 w-28">16. Código Cliente A</th>
+              <th class="p-2.5 w-28">17. Código Cliente B</th>
+              <th class="p-2.5 w-10 text-center no-print">Acción</th>
+            </tr>
+            <!-- Fila de Filtros por Columna -->
+            <tr id="filaFiltros" class="bg-slate-50 text-slate-600 text-[11px] no-print border-b border-slate-200">
+              <td class="p-1 text-center text-slate-400"><i class="fa-solid fa-filter text-xs"></i></td>
+              <td class="p-1"><input type="text" data-col="col-nroitem" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-cantidad" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-codigo" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-detalle" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-obs" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-precio" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-monedafila" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d1" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d2" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d3" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d4" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d5" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-costo" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-margen" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-venta" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-totventa" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-origen" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-codcliente" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1"><input type="text" data-col="col-codcliente2" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+              <td class="p-1 no-print"></td>
+            </tr>
+          </thead>
+          <tbody id="tbodyPresupuesto" class="divide-y divide-slate-200 text-xs">
+            <!-- Rows injected by JavaScript -->
+          </tbody>
+
+          <tfoot>
+            <tr class="bg-slate-100 text-slate-800 font-bold text-xs border-t-2 border-slate-300">
+              <td class="p-3 text-center no-print">∑</td>
+              <td id="totalCantidad" class="p-3 text-center text-indigo-700 font-mono">0</td>
+              <td colspan="3" class="p-3 text-right uppercase tracking-wider">Totales Consolidados:</td>
+              <td id="totalPrecioLista" class="p-3 text-right font-mono">$ 0.00</td>
+              <td colspan="5" class="p-3 text-center text-slate-400 font-normal text-[10px]">(Aplica descuento en cascada)</td>
+              <td id="totalCostoNetoUnit" class="p-3 text-right text-emerald-800 font-mono text-xs bg-emerald-50">$ 0.00</td>
+              <td id="promedioMargen" class="p-3 text-center text-blue-800 font-mono bg-blue-50">0.0%</td>
+              <td id="totalPrecioVentaUnit" class="p-3 text-right text-indigo-800 font-mono text-xs bg-indigo-50">$ 0.00</td>
+              <td id="totalPrecioVentaFila" class="p-3 text-right text-blue-900 font-mono text-base bg-blue-100">$ 0.00</td>
+              <td colspan="2" class="p-3"></td>
+              <td class="p-3 no-print"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- Executive KPI Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase">Unidades Totales</p>
+          <p id="kpiUnidades" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+        </div>
+        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg">
+          <i class="fa-solid fa-cubes text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase">Costo Neto Total</p>
+          <p id="kpiCosto" class="text-2xl font-bold text-emerald-600 mt-1">$ 0.00</p>
+        </div>
+        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+          <i class="fa-solid fa-coins text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase">Precio Venta Total</p>
+          <p id="kpiVenta" class="text-2xl font-bold text-indigo-600 mt-1">$ 0.00</p>
+        </div>
+        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+          <i class="fa-solid fa-receipt text-xl"></i>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+        <div>
+          <p class="text-xs font-medium text-slate-500 uppercase">Ganancia Estimada</p>
+          <p id="kpiGanancia" class="text-2xl font-bold text-teal-600 mt-1">$ 0.00</p>
+        </div>
+        <div class="p-3 bg-teal-50 text-teal-600 rounded-lg">
+          <i class="fa-solid fa-chart-line text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Notification Toast Modal (No alert) -->
+  <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 flex items-center gap-3 z-50 border border-slate-700">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+    <span id="toastMessage" class="text-xs font-medium">Mensaje de notificación</span>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+    let monedaActual = '$';
+
+    // Menús desplegables de la barra superior (Importar / Exportar)
+    function toggleDropdown(id) {
+      document.querySelectorAll('.dropdown-menu').forEach(el => {
+        if (el.id !== id) el.classList.remove('dropdown-open');
+      });
+      document.getElementById(id).classList.toggle('dropdown-open');
+    }
+
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.dropdown-wrapper')) {
+        document.querySelectorAll('.dropdown-menu').forEach(el => el.classList.remove('dropdown-open'));
+      }
+    });
+    let tipoCambioBNA = 1000;
+    let tipoCambioDivisa = 1000;
+    let tipoCambioEUR = 1150;
+
+    // Set today date by default
+    document.getElementById('metaFecha').valueAsDate = new Date();
+
+    let toastTimeoutId = null;
+
+    function mostrarToast(mensaje, tipo = 'exito') {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toastMessage');
+      const toastIcon = document.getElementById('toastIcon');
+
+      toastMessage.innerText = mensaje;
+      if (tipo === 'exito') {
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+      } else if (tipo === 'info') {
+        toastIcon.className = "fa-solid fa-circle-info text-blue-400 text-lg";
+      } else {
+        toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-lg";
+      }
+
+      // Si había un toast por ocultarse, cancelamos ese timer para que el nuevo mensaje
+      // no desaparezca antes de tiempo ni genere un parpadeo al superponerse.
+      if (toastTimeoutId) clearTimeout(toastTimeoutId);
+
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      toastTimeoutId = setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100');
+        toast.classList.add('translate-y-20', 'opacity-0');
+        toastTimeoutId = null;
+      }, 3500);
+    }
+
+    function actualizarMoneda() {
+      monedaActual = document.getElementById('metaMoneda').value;
+      recalcularPresupuestoCompleto();
+    }
+
+    function actualizarTipoCambio() {
+      tipoCambioBNA = parseFloat(document.getElementById('metaTCBNA').value) || 0;
+      tipoCambioDivisa = parseFloat(document.getElementById('metaTCDivisa').value) || 0;
+      tipoCambioEUR = parseFloat(document.getElementById('metaTCEUR').value) || 0;
+      recalcularPresupuestoCompleto();
+    }
+
+    async function actualizarCotizaciones() {
+      const btn = document.getElementById('btnActualizarTC');
+      const icono = document.getElementById('iconoActualizarTC');
+      const info = document.getElementById('infoCotizacionBNA');
+
+      btn.disabled = true;
+      icono.classList.add('fa-spin');
+      info.textContent = 'Consultando cotizaciones (BNA, Divisa, Euro)...';
+      info.className = 'text-[10px] text-slate-500 mt-1.5';
+
+      const resultados = await Promise.allSettled([
+        fetch('https://dolar-bna.vercel.app/api/cotizacion').then(r => {
+          if (!r.ok) throw new Error('BNA no disponible');
+          return r.json();
+        }),
+        fetch('https://dolarapi.com/v1/dolares/mayorista').then(r => {
+          if (!r.ok) throw new Error('Divisa no disponible');
+          return r.json();
+        }),
+        fetch('https://dolarapi.com/v1/cotizaciones/eur').then(r => {
+          if (!r.ok) throw new Error('Euro no disponible');
+          return r.json();
+        })
+      ]);
+
+      const [resBNA, resDivisa, resEUR] = resultados;
+      const partesOk = [];
+      const partesError = [];
+
+      if (resBNA.status === 'fulfilled' && typeof resBNA.value.venta === 'number') {
+        document.getElementById('metaTCBNA').value = resBNA.value.venta;
+        tipoCambioBNA = resBNA.value.venta;
+        partesOk.push(`BNA $${resBNA.value.venta}`);
+      } else {
+        partesError.push('BNA');
+      }
+
+      if (resDivisa.status === 'fulfilled' && typeof resDivisa.value.venta === 'number') {
+        document.getElementById('metaTCDivisa').value = resDivisa.value.venta;
+        tipoCambioDivisa = resDivisa.value.venta;
+        partesOk.push(`Divisa $${resDivisa.value.venta}`);
+      } else {
+        partesError.push('Divisa');
+      }
+
+      if (resEUR.status === 'fulfilled' && typeof resEUR.value.venta === 'number') {
+        document.getElementById('metaTCEUR').value = resEUR.value.venta;
+        tipoCambioEUR = resEUR.value.venta;
+        partesOk.push(`Euro $${resEUR.value.venta}`);
+      } else {
+        partesError.push('Euro');
+      }
+
+      recalcularPresupuestoCompleto();
+
+      const hora = new Date().toLocaleString('es-AR');
+      if (partesOk.length > 0) {
+        info.textContent = `${partesOk.join(' · ')} · Actualizado: ${hora}` + (partesError.length > 0 ? ` (No se pudo obtener: ${partesError.join(', ')})` : '');
+        info.className = partesError.length > 0 ? 'text-[10px] text-amber-600 mt-1.5' : 'text-[10px] text-emerald-600 mt-1.5 font-medium';
+        mostrarToast(partesError.length > 0 ? `Se actualizaron ${partesOk.length} de 3 cotizaciones.` : "Las 3 cotizaciones se actualizaron correctamente.", partesError.length > 0 ? "alerta" : "exito");
+      } else {
+        info.textContent = 'No se pudo obtener ninguna cotización. Verificá tu conexión o ingresá los valores manualmente.';
+        info.className = 'text-[10px] text-rose-600 mt-1.5';
+        mostrarToast("No se pudo actualizar ninguna cotización.", "alerta");
+      }
+
+      btn.disabled = false;
+      icono.classList.remove('fa-spin');
+    }
+
+    // Devuelve cuántos pesos argentinos equivalen a 1 unidad de la moneda dada
+    function obtenerTasaEnPesos(codigoMoneda) {
+      switch (codigoMoneda) {
+        case '$': return 1;
+        case 'USD': return tipoCambioBNA;
+        case 'DIVISA': return tipoCambioDivisa;
+        case 'EUR': return tipoCambioEUR;
+        default: return 1;
+      }
+    }
+
+    // Símbolo/etiqueta legible para mostrar en totales, KPIs y el PDF
+    function obtenerSimboloMoneda(codigoMoneda) {
+      switch (codigoMoneda) {
+        case '$': return '$';
+        case 'USD': return 'U$S';
+        case 'DIVISA': return 'U$S Div.';
+        case 'EUR': return '€';
+        default: return codigoMoneda;
+      }
+    }
+
+    function agregarFila(datos = null) {
+      const tbody = document.getElementById('tbodyPresupuesto');
+      const numFila = tbody.children.length + 1;
+      const tr = document.createElement('tr');
+      tr.className = "hover:bg-slate-50/80 transition-colors";
+
+      tr.innerHTML = `
+        <td class="p-2 text-center text-slate-400 font-mono text-[11px] row-index no-print">${numFila}</td>
+        <td class="p-1.5"><input type="text" class="cell-input text-center font-bold col-nroitem" placeholder="Ej: 1" value="${datos && datos.nroItem !== undefined ? datos.nroItem : ''}"></td>
+        <td class="p-1.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${datos && datos.cantidad !== undefined ? datos.cantidad : 1}"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-codigo" placeholder="Ej: ART-101" value="${datos ? datos.codigo : ''}"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${datos ? datos.detalle : ''}"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${datos ? datos.obs : ''}"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${datos ? datos.precio : ''}"></td>
+        <td class="p-1.5">
+          <select class="cell-input text-center col-monedafila" onchange="calcularFila(this.closest('tr')); calcularTotalesGenerales();">
+            <option value="$" ${(!datos || !datos.monedaFila || datos.monedaFila === '$') ? 'selected' : ''}>$ (ARS)</option>
+            <option value="USD" ${(datos && datos.monedaFila === 'USD') ? 'selected' : ''}>U$S BNA</option>
+            <option value="DIVISA" ${(datos && datos.monedaFila === 'DIVISA') ? 'selected' : ''}>U$S Divisa</option>
+            <option value="EUR" ${(datos && datos.monedaFila === 'EUR') ? 'selected' : ''}>€ Euro</option>
+          </select>
+        </td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${datos ? datos.d1 : ''}"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${datos ? datos.d2 : ''}"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${datos ? datos.d3 : ''}"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${datos ? datos.d4 : ''}"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${datos ? datos.d5 : ''}"></td>
+        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-costo" value="0.00"></td>
+        <td class="p-1.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${datos ? datos.margen : ''}"></td>
+        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-venta" value="0.00"></td>
+        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly-highlight col-totventa" value="0.00"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-origen" placeholder="Nac./Imp." value="${datos ? datos.origen : ''}"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-codcliente" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente : ''}"></td>
+        <td class="p-1.5"><input type="text" class="cell-input col-codcliente2" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente2 : ''}"></td>
+        <td class="p-1.5 text-center no-print">
+          <button onclick="eliminarFila(this)" class="text-slate-400 hover:text-rose-600 transition-colors p-1" title="Eliminar fila">
+            <i class="fa-solid fa-trash-can"></i>
+          </button>
+        </td>
+      `;
+
+      // Event listeners for recalculation
+      const inputs = tr.querySelectorAll('input');
+      inputs.forEach(input => {
+        input.addEventListener('input', () => {
+          calcularFila(tr);
+          calcularTotalesGenerales();
+        });
+      });
+
+      tbody.appendChild(tr);
+
+      if (datos) {
+        calcularFila(tr);
+      }
+
+      actualizarIndices();
+    }
+
+    function agregarMultiplesFilas(cantidad) {
+      for (let i = 0; i < cantidad; i++) {
+        agregarFila();
+      }
+    }
+
+    function eliminarFila(btn) {
+      const tr = btn.closest('tr');
+      tr.remove();
+      actualizarIndices();
+      calcularTotalesGenerales();
+    }
+
+    function actualizarIndices() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      filas.forEach((tr, index) => {
+        const tdIdx = tr.querySelector('.row-index');
+        if (tdIdx) tdIdx.innerText = index + 1;
+      });
+    }
+
+    function calcularFila(tr) {
+      const cantidad = parseFloat(tr.querySelector('.col-cantidad').value) || 0;
+      let precioLista = parseFloat(tr.querySelector('.col-precio').value) || 0;
+      const monedaFilaEl = tr.querySelector('.col-monedafila');
+      const monedaFila = monedaFilaEl ? monedaFilaEl.value : '$';
+
+      // Conversión automática: convierte el precio de la fila a la moneda del presupuesto,
+      // pasando siempre por pesos argentinos como unidad intermedia
+      if (monedaFila !== monedaActual) {
+        const tasaOrigen = obtenerTasaEnPesos(monedaFila);
+        const tasaDestino = obtenerTasaEnPesos(monedaActual);
+        if (tasaDestino > 0) {
+          precioLista = (precioLista * tasaOrigen) / tasaDestino;
+        }
+      }
+
+      const d1 = parseFloat(tr.querySelector('.col-d1').value) || 0;
+      const d2 = parseFloat(tr.querySelector('.col-d2').value) || 0;
+      const d3 = parseFloat(tr.querySelector('.col-d3').value) || 0;
+      const d4 = parseFloat(tr.querySelector('.col-d4').value) || 0;
+      const d5 = parseFloat(tr.querySelector('.col-d5').value) || 0;
+      const margen = parseFloat(tr.querySelector('.col-margen').value) || 0;
+
+      // 1. Descuentos en cascada para Costo Neto Unitario
+      let costoNetoUnit = precioLista;
+      costoNetoUnit *= (1 - d1 / 100);
+      costoNetoUnit *= (1 - d2 / 100);
+      costoNetoUnit *= (1 - d3 / 100);
+      costoNetoUnit *= (1 - d4 / 100);
+      costoNetoUnit *= (1 - d5 / 100);
+
+      // 2. Margen sobre Costo para Precio Venta Unitario
+      const precioVentaUnit = costoNetoUnit * (1 + margen / 100);
+
+      // 3. Total Precio Venta por Fila = Precio Venta Unitario x Cantidad
+      const totalPrecioVentaFila = precioVentaUnit * cantidad;
+
+      // Actualizar DOM
+      tr.querySelector('.col-costo').value = costoNetoUnit.toFixed(2);
+      tr.querySelector('.col-venta').value = precioVentaUnit.toFixed(2);
+      tr.querySelector('.col-totventa').value = totalPrecioVentaFila.toFixed(2);
+    }
+
+    function recalcularPresupuestoCompleto() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      filas.forEach(tr => calcularFila(tr));
+      calcularTotalesGenerales();
+    }
+
+    let ultimoReemplazoGlobal = null;
+
+    function actualizarTipoInputGlobal() {
+      const campo = document.getElementById('globalCampo').value;
+      const valorInput = document.getElementById('globalValor');
+
+      if (campo === 'col-origen') {
+        valorInput.type = 'text';
+        valorInput.step = '';
+        valorInput.placeholder = 'Ej: Nacional';
+      } else {
+        valorInput.type = 'number';
+        valorInput.step = '0.01';
+        valorInput.placeholder = 'Valor %';
+      }
+      valorInput.value = '';
+    }
+
+    function aplicarReemplazoGlobal() {
+      const campo = document.getElementById('globalCampo').value;
+      const valorInput = document.getElementById('globalValor');
+      const valor = valorInput.value;
+      const esTexto = campo === 'col-origen';
+
+      if (valor === '' || (!esTexto && isNaN(parseFloat(valor)))) {
+        mostrarToast(esTexto ? "Ingresá un valor de Origen antes de aplicar." : "Ingresá un valor numérico antes de aplicar.", "alerta");
+        return;
+      }
+
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      let modificadas = 0;
+      const cambiosPrevios = [];
+
+      filas.forEach(tr => {
+        // Solo aplica a filas actualmente visibles (respeta los filtros activos, ej: Origen)
+        if (tr.style.display === 'none') return;
+
+        const celda = tr.querySelector('.' + campo);
+        if (celda) {
+          cambiosPrevios.push({ tr, valorAnterior: celda.value });
+          celda.value = valor;
+          calcularFila(tr);
+          modificadas++;
+        }
+      });
+
+      calcularTotalesGenerales();
+
+      const btnDeshacer = document.getElementById('btnDeshacerGlobal');
+      if (modificadas === 0) {
+        mostrarToast("No hay filas visibles para modificar. Revisá los filtros.", "alerta");
+      } else {
+        ultimoReemplazoGlobal = { campo, cambios: cambiosPrevios };
+        btnDeshacer.classList.remove('hidden');
+        mostrarToast(`Se aplicó el valor a ${modificadas} fila(s) visible(s).`, "exito");
+      }
+    }
+
+    function deshacerReemplazoGlobal() {
+      if (!ultimoReemplazoGlobal) {
+        mostrarToast("No hay ningún reemplazo global para deshacer.", "alerta");
+        return;
+      }
+
+      const { campo, cambios } = ultimoReemplazoGlobal;
+      let restauradas = 0;
+
+      cambios.forEach(({ tr, valorAnterior }) => {
+        // Verifica que la fila todavía exista en la tabla (no haya sido eliminada)
+        if (!document.body.contains(tr)) return;
+        const celda = tr.querySelector('.' + campo);
+        if (celda) {
+          celda.value = valorAnterior;
+          calcularFila(tr);
+          restauradas++;
+        }
+      });
+
+      calcularTotalesGenerales();
+      ultimoReemplazoGlobal = null;
+      document.getElementById('btnDeshacerGlobal').classList.add('hidden');
+      mostrarToast(`Se restauraron los valores anteriores en ${restauradas} fila(s).`, "exito");
+    }
+
+    function filtrarTabla() {
+      const inputsFiltro = document.querySelectorAll('#filaFiltros input');
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+
+      filas.forEach(tr => {
+        let esVisible = true;
+
+        inputsFiltro.forEach(input => {
+          const colClass = input.dataset.col;
+          const valorFiltro = input.value.trim().toLowerCase();
+
+          if (valorFiltro && colClass) {
+            const celdaInput = tr.querySelector('.' + colClass);
+            const valorCelda = celdaInput ? celdaInput.value.toString().toLowerCase() : '';
+            
+            if (!valorCelda.includes(valorFiltro)) {
+              esVisible = false;
+            }
+          }
+        });
+
+        tr.style.display = esVisible ? '' : 'none';
+      });
+
+      calcularTotalesGenerales();
+    }
+
+    function limpiarFiltros() {
+      const inputsFiltro = document.querySelectorAll('#filaFiltros input');
+      inputsFiltro.forEach(input => input.value = '');
+      filtrarTabla();
+      mostrarToast("Se restablecieron todos los filtros.", "info");
+    }
+
+    function calcularTotalesGenerales() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      let sumaCantidad = 0;
+      let sumaPrecioLista = 0;
+      let sumaCostoNetoUnit = 0;
+      let sumaPrecioVentaUnit = 0;
+      let sumaTotalPrecioVentaFila = 0;
+      let sumaTotalCostoNetoFila = 0;
+      let sumaMargen = 0;
+      let filasVisibles = 0;
+
+      filas.forEach(tr => {
+        // Ignorar filas ocultas por filtros
+        if (tr.style.display === 'none') return;
+        filasVisibles++;
+
+        const cantidad = parseFloat(tr.querySelector('.col-cantidad').value) || 0;
+        let precio = parseFloat(tr.querySelector('.col-precio').value) || 0;
+        const monedaFilaEl = tr.querySelector('.col-monedafila');
+        const monedaFila = monedaFilaEl ? monedaFilaEl.value : '$';
+        if (monedaFila !== monedaActual) {
+          const tasaOrigen = obtenerTasaEnPesos(monedaFila);
+          const tasaDestino = obtenerTasaEnPesos(monedaActual);
+          if (tasaDestino > 0) precio = (precio * tasaOrigen) / tasaDestino;
+        }
+        const costoUnit = parseFloat(tr.querySelector('.col-costo').value) || 0;
+        const ventaUnit = parseFloat(tr.querySelector('.col-venta').value) || 0;
+        const totalVentaFila = parseFloat(tr.querySelector('.col-totventa').value) || 0;
+        const margen = parseFloat(tr.querySelector('.col-margen').value) || 0;
+
+        sumaCantidad += cantidad;
+        sumaPrecioLista += precio;
+        sumaCostoNetoUnit += costoUnit;
+        sumaPrecioVentaUnit += ventaUnit;
+        sumaTotalPrecioVentaFila += totalVentaFila;
+        sumaTotalCostoNetoFila += (costoUnit * cantidad);
+        sumaMargen += margen;
+      });
+
+      const gananciaTotal = sumaTotalPrecioVentaFila - sumaTotalCostoNetoFila;
+      const margenPromedio = filasVisibles > 0 ? (sumaMargen / filasVisibles) : 0;
+
+      // Actualizar Footer de la Tabla
+      document.getElementById('totalCantidad').innerText = sumaCantidad;
+      document.getElementById('totalPrecioLista').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaPrecioLista.toFixed(2)}`;
+      document.getElementById('totalCostoNetoUnit').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaCostoNetoUnit.toFixed(2)}`;
+      document.getElementById('totalPrecioVentaUnit').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaPrecioVentaUnit.toFixed(2)}`;
+      document.getElementById('totalPrecioVentaFila').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalPrecioVentaFila.toFixed(2)}`;
+      document.getElementById('promedioMargen').innerText = `${margenPromedio.toFixed(1)}% Prom.`;
+
+      // Actualizar KPI Cards
+      document.getElementById('kpiUnidades').innerText = sumaCantidad;
+      document.getElementById('kpiCosto').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalCostoNetoFila.toFixed(2)}`;
+      document.getElementById('kpiVenta').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalPrecioVentaFila.toFixed(2)}`;
+      document.getElementById('kpiGanancia').innerText = `${obtenerSimboloMoneda(monedaActual)} ${gananciaTotal.toFixed(2)}`;
+    }
+
+    // Parser propio de CSV/TXT: respeta comillas y detecta el delimitador (';' o ',')
+    // Se usa en lugar de la librería XLSX para archivos de texto, porque esa librería
+    // interpreta automáticamente "242,08" como el número 24208 (tratando la coma como separador de miles),
+    // arruinando los valores con coma decimal antes de que podamos corregirlos.
+    // Interpreta el valor de la columna "Moneda" al importar: acepta códigos numéricos
+    // (1=Pesos, 2=Dólar BNA, 3=Dólar Divisa, 58=Euro) o siglas/nombres de texto.
+    function normalizarMonedaFila(valorCrudo) {
+      const v = (valorCrudo || '').toString().trim().toUpperCase();
+
+      // Códigos numéricos
+      if (v === '1') return '$';
+      if (v === '2') return 'USD';
+      if (v === '3') return 'DIVISA';
+      if (v === '58') return 'EUR';
+
+      // Euro
+      if (['EUR', 'EURO', 'EUROS', '€'].includes(v)) return 'EUR';
+
+      // Dólar Divisa (mayorista)
+      if (['DIVISA', 'DOLAR DIVISA', 'DÓLAR DIVISA', 'MAYORISTA', 'DOLAR MAYORISTA', 'DÓLAR MAYORISTA'].includes(v)) return 'DIVISA';
+
+      // Dólar BNA / genérico
+      if (['USD', 'U$S', 'US$', 'DOLAR', 'DÓLAR', 'DOLARES', 'DÓLARES', 'BNA', 'DOLAR BNA', 'DÓLAR BNA', 'U$S BNA'].includes(v)) return 'USD';
+
+      // Pesos (default)
+      return '$';
+    }
+
+    function parseCSVTexto(texto) {
+      const lineas = texto.split(/\r\n|\n|\r/).filter(l => l.trim() !== '');
+      if (lineas.length === 0) return [];
+
+      const primeraLinea = lineas[0];
+      const cantPuntoYComa = (primeraLinea.match(/;/g) || []).length;
+      const delimitador = cantPuntoYComa > 0 ? ';' : ',';
+
+      function parsearLinea(linea) {
+        const resultado = [];
+        let actual = '';
+        let entreComillas = false;
+        for (let i = 0; i < linea.length; i++) {
+          const ch = linea[i];
+          if (entreComillas) {
+            if (ch === '"') {
+              if (linea[i + 1] === '"') { actual += '"'; i++; }
+              else { entreComillas = false; }
+            } else {
+              actual += ch;
+            }
+          } else {
+            if (ch === '"') entreComillas = true;
+            else if (ch === delimitador) { resultado.push(actual); actual = ''; }
+            else actual += ch;
+          }
+        }
+        resultado.push(actual);
+        return resultado;
+      }
+
+      const encabezados = parsearLinea(lineas[0]).map(h => h.trim());
+      const filas = [];
+      for (let i = 1; i < lineas.length; i++) {
+        const campos = parsearLinea(lineas[i]);
+        const obj = {};
+        encabezados.forEach((h, idx) => { obj[h] = campos[idx] !== undefined ? campos[idx].trim() : ''; });
+        filas.push(obj);
+      }
+      return filas;
+    }
+
+    function importarExcel(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const esTextoPlano = /\.(csv|txt)$/i.test(file.name);
+      const reader = new FileReader();
+
+      reader.onload = function(e) {
+        try {
+          let jsonData;
+
+          if (esTextoPlano) {
+            // Leído como texto: evita que XLSX mal-interprete comas decimales
+            jsonData = parseCSVTexto(e.target.result);
+          } else {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          }
+
+          if (jsonData.length === 0) {
+            mostrarToast("El archivo seleccionado está vacío.", "alerta");
+            return;
+          }
+
+          // Clear table before importing
+          document.getElementById('tbodyPresupuesto').innerHTML = '';
+
+          let cargados = 0;
+
+          // Convierte números en formato local (coma decimal, punto de miles) a float
+          const parseNumeroLocal = (val) => {
+            if (typeof val === 'number') return val;
+            if (val === undefined || val === null) return 0;
+            let s = String(val).trim().replace(/\s/g, '');
+            if (s === '') return 0;
+            const hasComma = s.includes(',');
+            const hasDot = s.includes('.');
+            if (hasComma && hasDot) {
+              if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+                s = s.replace(/\./g, '').replace(',', '.'); // 1.234,56 -> 1234.56
+              } else {
+                s = s.replace(/,/g, ''); // 1,234.56 -> 1234.56
+              }
+            } else if (hasComma) {
+              s = s.replace(',', '.'); // 242,08 -> 242.08
+            }
+            const n = parseFloat(s);
+            return isNaN(n) ? 0 : n;
+          };
+
+          jsonData.forEach(row => {
+            // Support multiple possible header names (case insensitive)
+            const getVal = (keys) => {
+              for (let k of keys) {
+                const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
+                if (foundKey && row[foundKey] !== undefined && row[foundKey] !== "") {
+                  return row[foundKey];
+                }
+              }
+              return "";
+            };
+
+            const nroItem = getVal(["nro_item", "nroitem", "n_item", "nitem", "item_nro", "n° item", "nro item", "número item", "numero item", "nro"]);
+            const cantidad = parseNumeroLocal(getVal(["cantidad", "cant", "qty"])) || 1;
+            const codigo = getVal(["codigo", "código", "cod", "item"]);
+            const detalle = getVal(["detalle", "descripcion", "descripción", "articulo", "artículo"]);
+            const precio = parseNumeroLocal(getVal(["precio_lista", "preciolista", "precio", "precio lista"])) || 0;
+            const obs = getVal(["observaciones", "obs"]);
+            const d1 = parseNumeroLocal(getVal(["desc_1", "desc1", "descuento1"])) || 0;
+            const d2 = parseNumeroLocal(getVal(["desc_2", "desc2", "descuento2"])) || 0;
+            const d3 = parseNumeroLocal(getVal(["desc_3", "desc3", "descuento3"])) || 0;
+            const d4 = parseNumeroLocal(getVal(["desc_4", "desc4", "descuento4"])) || 0;
+            const d5 = parseNumeroLocal(getVal(["desc_5", "desc5", "descuento5"])) || 0;
+            const margen = parseNumeroLocal(getVal(["margen", "margen_comercial", "markup"])) || 0;
+            const origen = getVal(["origen", "proveedor"]);
+            const codCliente = getVal(["cod_cliente_a", "codigo_cliente_a", "codigo cliente a", "cod_cliente", "codigo_cliente", "codigocliente", "codcliente", "cod cliente", "codigo cliente", "código cliente", "cliente"]);
+            const codCliente2 = getVal(["cod_cliente_b", "codigo_cliente_b", "codigo cliente b", "cod_cliente2", "codigo_cliente2"]);
+            const monedaFilaCruda = getVal(["moneda", "monedacosto", "moneda_costo", "moneda costo", "currency"]).toString().trim().toUpperCase();
+            const monedaFila = normalizarMonedaFila(monedaFilaCruda);
+
+            if (codigo || detalle || precio > 0) {
+              agregarFila({
+                nroItem, cantidad, codigo, detalle, obs, precio, monedaFila, d1, d2, d3, d4, d5, margen, origen, codCliente, codCliente2
+              });
+              cargados++;
+            }
+          });
+
+          // Add extra empty rows if needed
+          if (cargados < 5) {
+            agregarMultiplesFilas(5 - cargados);
+          }
+
+          calcularTotalesGenerales();
+          mostrarToast(`¡Se importaron ${cargados} artículos desde el archivo!`, "exito");
+        } catch (err) {
+          console.error(err);
+          mostrarToast("Error al leer el archivo Excel/CSV. Revisa la consola.", "alerta");
+        }
+      };
+
+      if (esTextoPlano) {
+        reader.readAsText(file, 'UTF-8');
+      } else {
+        reader.readAsArrayBuffer(file);
+      }
+      event.target.value = ''; // Reset input
+    }
+
+    function descargarPlantillaExcel() {
+      const data = [
+        ["NRO_ITEM", "CANTIDAD", "CODIGO", "DETALLE", "PRECIO_LISTA", "ORIGEN", "OBSERVACIONES", "MARGIN", "COD_CLIENTE"],
+        [1, 10, "HER-001", "Taladro Percutor 750W", 150000, "Importado", "Insumo Obra", 35, "CLI-A10"],
+        [2, 50, "HER-042", "Juego de Mechas x10", 28000, "Nacional", "Caja plástica", 40, "CLI-A10"],
+        [3, 20, "ELE-105", "Cable Unipolar 2.5mm x 100m", 85000, "Nacional", "Normalizado IRAM", 25, "CLI-B22"],
+        [4, 100, "BUL-882", "Tornillos Autoperforantes 10x2'' x500", 19500, "Importado", "Bolsa sellada", 50, "CLI-B22"]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Reducida");
+      XLSX.writeFile(wb, "plantilla_presupuesto_reducida.xlsx");
+      mostrarToast("Descargando plantilla de ejemplo en Excel...", "info");
+    }
+
+    // Nombre completo, para mostrar en el campo "Moneda:" del PDF
+    function obtenerNombreMoneda(codigoMoneda) {
+      switch (codigoMoneda) {
+        case '$': return 'Pesos Argentinos ($)';
+        case 'USD': return 'Dólar BNA (USD)';
+        case 'DIVISA': return 'Dólar Divisa';
+        case 'EUR': return 'Euros (€)';
+        default: return codigoMoneda;
+      }
+    }
+
+    function exportarPDF() {
+      if (typeof window.jspdf === 'undefined') {
+        mostrarToast("No se pudo cargar la librería de PDF. Revisá tu conexión a internet.", "alerta");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+      const cliente = document.getElementById('metaCliente').value || '-';
+      const numero = document.getElementById('metaNumero').value || '-';
+      const fechaInput = document.getElementById('metaFecha').value;
+      const fecha = fechaInput ? new Date(fechaInput + 'T00:00:00').toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR');
+      const moneda = obtenerSimboloMoneda(monedaActual);
+
+      // Encabezado
+      doc.setFontSize(16);
+      doc.setFont(undefined, 'bold');
+      doc.text('PRESUPUESTO', 105, 15, { align: 'center' });
+
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Presupuesto N°: ${numero}`, 14, 26);
+      doc.text(`Fecha de Emisión: ${fecha}`, 14, 32);
+      doc.text(`Moneda: ${obtenerNombreMoneda(monedaActual)}`, 14, 38);
+      doc.text(`Cliente / Empresa: ${cliente}`, 14, 44);
+
+      // Filas visibles (respeta filtros activos)
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      const body = [];
+      let totalPresupuesto = 0;
+
+      filas.forEach(tr => {
+        if (tr.style.display === 'none') return;
+
+        const nroItem = tr.querySelector('.col-nroitem').value;
+        const cantidad = tr.querySelector('.col-cantidad').value;
+        const detalle = tr.querySelector('.col-detalle').value;
+        const obs = tr.querySelector('.col-obs').value;
+        const ventaUnit = parseFloat(tr.querySelector('.col-venta').value) || 0;
+        const totVenta = parseFloat(tr.querySelector('.col-totventa').value) || 0;
+
+        // Omitir filas totalmente vacías
+        if (!detalle && !cantidad && totVenta === 0) return;
+
+        totalPresupuesto += totVenta;
+
+        body.push([
+          nroItem || '',
+          cantidad || '',
+          detalle || '',
+          obs || '',
+          `${moneda} ${ventaUnit.toFixed(2)}`,
+          `${moneda} ${totVenta.toFixed(2)}`
+        ]);
+      });
+
+      doc.autoTable({
+        startY: 50,
+        head: [["N° Item", "Cantidad", "Detalle Artículo", "Observaciones", "Precio Venta Unit.", "Total Precio Venta"]],
+        body: body,
+        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center' },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 35 },
+          4: { cellWidth: 30, halign: 'right' },
+          5: { cellWidth: 30, halign: 'right' }
+        },
+        margin: { left: 14, right: 14 }
+      });
+
+      const finalY = doc.lastAutoTable.finalY + 8;
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text(`TOTAL PRESUPUESTO: ${moneda} ${totalPresupuesto.toFixed(2)}`, 196, finalY, { align: 'right' });
+
+      if (body.length === 0) {
+        mostrarToast("No hay ítems visibles para incluir en el PDF.", "alerta");
+        return;
+      }
+
+      const limpiar = (s) => (s || '').toString().trim().replace(/[^a-z0-9_\-]/gi, '_').replace(/_+/g, '_');
+      const nombreArchivo = `Presupuesto_${limpiar(cliente) || 'Cliente'}_${limpiar(numero) || 'SN'}.pdf`;
+
+      doc.save(nombreArchivo);
+      mostrarToast("PDF generado correctamente.", "exito");
+    }
+
+    function exportarPlantillaMylogic() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+
+      const data = [
+        ["Item", "Producto", "Caracteristica", "Producto.marca", "Producto.Código Alternativo", "Requerimiento", "Cantidad", "Precio", "Costo", "Subtotal"]
+      ];
+
+      filas.forEach(tr => {
+        const nroItem = tr.querySelector('.col-nroitem').value;
+        const producto = tr.querySelector('.col-codigo').value;
+        const caracteristica = tr.querySelector('.col-detalle').value;
+        const cantidad = tr.querySelector('.col-cantidad').value;
+
+        data.push([nroItem, producto, caracteristica, "", "", "", cantidad, "", "", ""]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Mylogic");
+      XLSX.writeFile(wb, `plantilla_mylogic_${new Date().toISOString().slice(0,10)}.xlsx`);
+      mostrarToast("Plantilla Mylogic exportada correctamente.", "exito");
+    }
+
+    function cargarDatosEjemplo() {
+      document.getElementById('tbodyPresupuesto').innerHTML = '';
+
+      const datosPrueba = [
+        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", obs: "Oferta de temporada", precio: 150000, d1: 10, d2: 5, d3: 0, d4: 0, d5: 0, margen: 35, origen: "Importado", codCliente: "CLI-A10" },
+        { nroItem: 2, cantidad: 20, codigo: "HER-042", detalle: "Juego de Mechas para Concreto x10", obs: "Caja plástica", precio: 28000, d1: 15, d2: 5, d3: 2, d4: 0, d5: 0, margen: 40, origen: "Nacional", codCliente: "CLI-A10" },
+        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", obs: "Normalizado IRAM", precio: 85000, d1: 20, d2: 10, d3: 5, d4: 2, d5: 0, margen: 25, origen: "Nacional", codCliente: "CLI-B22" },
+        { nroItem: 4, cantidad: 50, codigo: "BUL-882", detalle: "Tornillos Autoperforantes 10x2'' x500", obs: "Bolsa sellada", precio: 19500, d1: 5, d2: 0, d3: 0, d4: 0, d5: 0, margen: 50, origen: "Importado", codCliente: "CLI-B22" },
+        { nroItem: 5, cantidad: 8, codigo: "PIN-301", detalle: "Pintura Látex Interior Mate 20L", obs: "Color Blanco", precio: 110000, d1: 12, d2: 8, d3: 0, d4: 0, d5: 0, margen: 30, origen: "Nacional", codCliente: "CLI-C05" }
+      ];
+
+      datosPrueba.forEach(item => agregarFila(item));
+      calcularTotalesGenerales();
+      mostrarToast("Se cargaron los datos de prueba.", "info");
+    }
+
+    function limpiarTodo() {
+      document.getElementById('tbodyPresupuesto').innerHTML = '';
+      agregarMultiplesFilas(8);
+      calcularTotalesGenerales();
+      mostrarToast("Tabla reiniciada.", "info");
+    }
+
+    function exportarCSV() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+      if (filas.length === 0) {
+        mostrarToast("No hay datos para exportar.", "alerta");
+        return;
+      }
+
+      let csv = "NroItem;Cantidad;Codigo;Detalle;Observaciones;PrecioLista;MonedaCosto;Desc1;Desc2;Desc3;Desc4;Desc5;CostoNetoUnit;Margen;PrecioVentaUnit;TotalPrecioVenta;Proveedor;CodigoClienteA;CodigoCliente\n";
+
+      // Formatea un número con 2 decimales fijos y coma decimal (formato local: 1234.56 -> "1234,56")
+      const formatearDecimalCSV = (val) => {
+        const n = parseFloat(val);
+        if (isNaN(n)) return "";
+        return n.toFixed(2).replace('.', ',');
+      };
+
+      filas.forEach(tr => {
+        const nroItem = tr.querySelector('.col-nroitem').value;
+        const cantidad = tr.querySelector('.col-cantidad').value;
+        const codigo = tr.querySelector('.col-codigo').value;
+        const detalle = tr.querySelector('.col-detalle').value;
+        const obs = tr.querySelector('.col-obs').value;
+        const precio = tr.querySelector('.col-precio').value;
+        const monedaFila = tr.querySelector('.col-monedafila').value;
+        const d1 = tr.querySelector('.col-d1').value;
+        const d2 = tr.querySelector('.col-d2').value;
+        const d3 = tr.querySelector('.col-d3').value;
+        const d4 = tr.querySelector('.col-d4').value;
+        const d5 = tr.querySelector('.col-d5').value;
+        const costoUnit = tr.querySelector('.col-costo').value;
+        const margen = tr.querySelector('.col-margen').value;
+        const ventaUnit = tr.querySelector('.col-venta').value;
+        const totVenta = tr.querySelector('.col-totventa').value;
+        const origen = tr.querySelector('.col-origen').value;
+        const codCliente = tr.querySelector('.col-codcliente').value;
+        const codCliente2 = tr.querySelector('.col-codcliente2').value;
+
+        if (codigo || detalle || precio) {
+          csv += `"${nroItem}";"${cantidad}";"${codigo}";"${detalle}";"${obs}";"${formatearDecimalCSV(precio)}";"${monedaFila}";"${d1}";"${d2}";"${d3}";"${d4}";"${d5}";"${formatearDecimalCSV(costoUnit)}";"${margen}";"${formatearDecimalCSV(ventaUnit)}";"${formatearDecimalCSV(totVenta)}";"${origen}";"${codCliente}";"${codCliente2}"\n`;
+        }
+      });
+
+      const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `presupuesto_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      mostrarToast("Archivo CSV generado correctamente.", "exito");
+    }
+
+    function guardarBackupJSON() {
+      const filas = document.querySelectorAll('#tbodyPresupuesto tr');
+
+      const items = [];
+      filas.forEach(tr => {
+        items.push({
+          nroItem: tr.querySelector('.col-nroitem').value,
+          cantidad: tr.querySelector('.col-cantidad').value,
+          codigo: tr.querySelector('.col-codigo').value,
+          detalle: tr.querySelector('.col-detalle').value,
+          obs: tr.querySelector('.col-obs').value,
+          precio: tr.querySelector('.col-precio').value,
+          monedaFila: tr.querySelector('.col-monedafila').value,
+          d1: tr.querySelector('.col-d1').value,
+          d2: tr.querySelector('.col-d2').value,
+          d3: tr.querySelector('.col-d3').value,
+          d4: tr.querySelector('.col-d4').value,
+          d5: tr.querySelector('.col-d5').value,
+          margen: tr.querySelector('.col-margen').value,
+          origen: tr.querySelector('.col-origen').value,
+          codCliente: tr.querySelector('.col-codcliente').value,
+          codCliente2: tr.querySelector('.col-codcliente2').value
+        });
+      });
+
+      const backup = {
+        tipo: "backup_presupuesto",
+        version: 1,
+        fechaBackup: new Date().toISOString(),
+        metadata: {
+          cliente: document.getElementById('metaCliente').value,
+          numero: document.getElementById('metaNumero').value,
+          fecha: document.getElementById('metaFecha').value,
+          moneda: document.getElementById('metaMoneda').value,
+          tipoCambioBNA: document.getElementById('metaTCBNA').value,
+          tipoCambioDivisa: document.getElementById('metaTCDivisa').value,
+          tipoCambioEUR: document.getElementById('metaTCEUR').value
+        },
+        items: items
+      };
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const link = document.createElement("a");
+      const limpiar = (s) => (s || '').toString().trim().replace(/[^a-z0-9_\-]/gi, '_').replace(/_+/g, '_');
+      const clienteArchivo = limpiar(backup.metadata.cliente) || 'SinCliente';
+      const numeroArchivo = limpiar(backup.metadata.numero) || 'SinNumero';
+
+      const ahora = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const fechaHora = `${pad(ahora.getDate())}_${pad(ahora.getMonth() + 1)}_${ahora.getFullYear()}_${pad(ahora.getHours())}_${pad(ahora.getMinutes())}`;
+
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute("download", `${clienteArchivo}_${numeroArchivo}_${fechaHora}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      mostrarToast("Respaldo JSON guardado correctamente.", "exito");
+    }
+
+    function cargarBackupJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const backup = JSON.parse(e.target.result);
+
+          if (!backup || !Array.isArray(backup.items)) {
+            mostrarToast("El archivo JSON no tiene un formato de respaldo válido.", "alerta");
+            return;
+          }
+
+          // Restaurar metadata si está presente
+          if (backup.metadata) {
+            if (backup.metadata.cliente !== undefined) document.getElementById('metaCliente').value = backup.metadata.cliente;
+            if (backup.metadata.numero !== undefined) document.getElementById('metaNumero').value = backup.metadata.numero;
+            if (backup.metadata.fecha !== undefined && backup.metadata.fecha) document.getElementById('metaFecha').value = backup.metadata.fecha;
+            if (backup.metadata.moneda !== undefined) document.getElementById('metaMoneda').value = backup.metadata.moneda;
+            if (backup.metadata.tipoCambioBNA !== undefined && backup.metadata.tipoCambioBNA !== '') document.getElementById('metaTCBNA').value = backup.metadata.tipoCambioBNA;
+            if (backup.metadata.tipoCambioDivisa !== undefined && backup.metadata.tipoCambioDivisa !== '') document.getElementById('metaTCDivisa').value = backup.metadata.tipoCambioDivisa;
+            if (backup.metadata.tipoCambioEUR !== undefined && backup.metadata.tipoCambioEUR !== '') document.getElementById('metaTCEUR').value = backup.metadata.tipoCambioEUR;
+          }
+          monedaActual = document.getElementById('metaMoneda').value;
+          tipoCambioBNA = parseFloat(document.getElementById('metaTCBNA').value) || 0;
+          tipoCambioDivisa = parseFloat(document.getElementById('metaTCDivisa').value) || 0;
+          tipoCambioEUR = parseFloat(document.getElementById('metaTCEUR').value) || 0;
+
+          // Restaurar filas
+          document.getElementById('tbodyPresupuesto').innerHTML = '';
+          backup.items.forEach(item => agregarFila(item));
+
+          if (backup.items.length < 5) {
+            agregarMultiplesFilas(5 - backup.items.length);
+          }
+
+          calcularTotalesGenerales();
+          mostrarToast(`Respaldo restaurado: ${backup.items.length} ítems cargados.`, "exito");
+        } catch (err) {
+          console.error(err);
+          mostrarToast("Error al leer el archivo de respaldo JSON. Revisa la consola.", "alerta");
+        }
+      };
+
+      reader.readAsText(file);
+      event.target.value = ''; // Reset input
+    }
+
+    window.onload = function() {
+      // Load 8 default rows
+      agregarMultiplesFilas(8);
+      calcularTotalesGenerales();
+    };
+  </script>
+</body>
+</html>
