@@ -1,17 +1,18 @@
 <!DOCTYPE html>
-<html lang="es" class="h-full bg-slate-50">
+<html lang="es" class="h-full bg-[#f3f3f3]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Generador de Presupuestos</title>
-  <!-- Favicon: isotipo propio (documento + $) -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23185FA5'/%3E%3Crect x='20' y='14' width='24' height='30' rx='3' fill='white'/%3E%3Crect x='24' y='20' width='16' height='2.5' rx='1' fill='%23185FA5'/%3E%3Crect x='24' y='26' width='16' height='2.5' rx='1' fill='%23185FA5'/%3E%3Crect x='24' y='32' width='10' height='2.5' rx='1' fill='%23185FA5'/%3E%3Ccircle cx='40' cy='42' r='9' fill='%23185FA5' stroke='white' stroke-width='2'/%3E%3Ctext x='40' y='46' font-family='Arial' font-size='11' font-weight='bold' fill='white' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+  <title>Generador de Presupuestos - Windows Edition</title>
+  <!-- Favicon: isotipo propio -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%237dbdf0'/%3E%3Cstop offset='.5' stop-color='%232a7fd0'/%3E%3Cstop offset='.51' stop-color='%231565b8'/%3E%3Cstop offset='1' stop-color='%234aa1e8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='8' fill='url(%23g)'/%3E%3Crect x='20' y='14' width='24' height='30' rx='1' fill='white'/%3E%3Crect x='24' y='20' width='16' height='2.5' rx='0.5' fill='%230078D4'/%3E%3Crect x='24' y='26' width='16' height='2.5' rx='0.5' fill='%230078D4'/%3E%3Crect x='24' y='32' width='10' height='2.5' rx='0.5' fill='%230078D4'/%3E%3Ccircle cx='40' cy='42' r='9' fill='%230078D4' stroke='white' stroke-width='2'/%3E%3Ctext x='40' y='46' font-family='Segoe UI, sans-serif' font-size='11' font-weight='bold' fill='white' text-anchor='middle'%3E%24%3C/text%3E%3C/svg%3E">
+  
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Google Fonts Inter & Segoe UI Fallback -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- SheetJS for Excel Import/Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <!-- jsPDF for PDF export -->
@@ -19,155 +20,425 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
   <style>
+    /* =====================================================================
+       ESTILO WINDOWS 7 (AERO) — solo apariencia. No altera maquetación ni lógica.
+       ===================================================================== */
+    :root {
+      --win-accent: #3c7fb1;
+      --win-accent-hover: #2c628b;
+      --win-accent-active: #1f4c70;
+      --win-bg: #dfe9f5;
+      --win-card: #ffffff;
+      --win-border: #c9d5e4;
+      --win-border-dark: #8ea4bf;
+      --win-header-bg: #a9c8e8;
+      --win-table-header: #eef2f8;
+      --win-table-alt: #f7f9fd;
+      --w7-frame: #a7bcd3;
+      --w7-text: #1e2b3c;
+    }
+
+    ::selection { background: #3399ff; color: #ffffff; }
+
+    html { background: #d3e0f0 !important; }
+
     body {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Segoe UI', 'Inter', Tahoma, -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #e9f0f9 0%, #d6e3f2 55%, #c8d9ee 100%) fixed;
+      color: var(--w7-text);
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Custom scrollbar for large tables */
-    .table-scroll::-webkit-scrollbar {
-      height: 8px;
-      width: 8px;
-    }
-    .table-scroll::-webkit-scrollbar-track {
-      background: #f1f5f9;
-      border-radius: 4px;
-    }
-    .table-scroll::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-    .table-scroll::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
+    /* ---------- Barra superior: vidrio Aero + barra de comandos ---------- */
+    header {
+      background:
+        linear-gradient(115deg, rgba(255,255,255,0) 28%, rgba(255,255,255,.38) 36%, rgba(255,255,255,0) 44%,
+                                rgba(255,255,255,0) 62%, rgba(255,255,255,.26) 68%, rgba(255,255,255,0) 74%),
+        linear-gradient(180deg, #cfe0f3 0%, #a9c8e8 50%, #97bbe3 100%) !important;
+      border-bottom: 1px solid #4f759f !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 2px 5px rgba(0,0,0,.28) !important;
     }
 
-    /* Table input adjustments */
-    .cell-input {
+    header > div:first-child {
+      background: transparent !important;
+      border-bottom: 1px solid rgba(255,255,255,.5) !important;
+      color: #1c2c42 !important;
+      text-shadow: 0 0 6px rgba(255,255,255,.95), 0 0 2px rgba(255,255,255,.9);
+    }
+    header > div:first-child span { color: #1c2c42 !important; }
+    header > div:first-child span.text-gray-600 { color: #5d7da3 !important; }
+    header > div:first-child .fa-calculator { color: #1c5a9c !important; }
+    header > div:first-child span.rounded-full {
+      box-shadow: 0 0 0 1px rgba(255,255,255,.75), 0 0 6px rgba(46,204,113,.9);
+    }
+
+    header > div:nth-child(2) {
+      background: linear-gradient(180deg, #fbfdff 0%, #f0f5fb 49%, #e3ebf6 50%, #e9eff8 100%);
+      border-top: 1px solid #ffffff;
+      border-bottom: 1px solid #9db3cd;
+    }
+    header h1 { color: #1e395b !important; text-shadow: 0 1px 0 #ffffff; }
+    header p  { color: #5b708b !important; }
+
+    header .w-9.h-9 {
+      background: linear-gradient(180deg, #7dbdf0 0%, #3b8fdc 48%, #1668bd 52%, #4aa1e8 100%) !important;
+      border: 1px solid #14508a;
+      border-radius: 5px !important;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.65), inset 0 0 0 1px rgba(255,255,255,.18), 0 1px 2px rgba(0,0,0,.35) !important;
+    }
+
+    /* ---------- Paneles ---------- */
+    .win-card {
+      background: linear-gradient(180deg, #ffffff 0%, #f6f9fd 100%);
+      border: 1px solid var(--w7-frame);
+      border-radius: 4px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 1px 3px rgba(30,60,100,.18);
+    }
+    .win-card.border-l-4 {
+      background: linear-gradient(180deg, #f6faff 0%, #e6eff9 100%);
+      border-left-color: #2f78c4;
+    }
+    .win-card > div.font-semibold:first-child {
+      color: #1e395b !important;
+      border-color: #c5d4e6 !important;
+      text-shadow: 0 1px 0 #ffffff;
+    }
+    .win-card label.text-gray-600 { color: #33475f; }
+
+    /* Tarjetas de resumen (KPI): icono con brillo glossy */
+    .win-card.justify-between > div:last-child {
+      background-image: linear-gradient(180deg, rgba(255,255,255,.8) 0%, rgba(255,255,255,.15) 50%, rgba(255,255,255,0) 52%);
+      border: 1px solid rgba(40,70,110,.28);
+      border-radius: 6px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.7), 0 1px 2px rgba(0,0,0,.15);
+    }
+
+    /* ---------- Tabla (grilla) ---------- */
+    .win-table {
+      border-collapse: separate;
+      border-spacing: 0;
       width: 100%;
-      padding: 0.35rem 0.4rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 0.375rem;
-      font-size: 0.8125rem;
-      transition: all 0.15s ease-in-out;
+      border: 1px solid var(--win-border-dark);
       background-color: #ffffff;
     }
+
+    .win-table th {
+      background: linear-gradient(180deg, #ffffff 0%, #f4f6fa 45%, #e8edf5 50%, #eef2f8 100%);
+      color: #3b516d;
+      font-weight: 600;
+      text-shadow: 0 1px 0 #ffffff;
+      border-right: 1px solid #cdd7e5;
+      border-bottom: 1px solid #9fb2cb;
+      padding: 6px 8px;
+      user-select: none;
+    }
+    .win-table th:last-child { border-right: none; }
+
+    /* Columnas calculadas: encabezado con tinte verde / azul */
+    .win-table thead th[class*="e6f4ea"] {
+      background-image: linear-gradient(180deg, #fbfefb 0%, #eaf6ec 45%, #d3ecd8 50%, #def1e1 100%) !important;
+      color: #1b5e2f !important;
+    }
+    .win-table thead th[class*="e8f0fe"] {
+      background-image: linear-gradient(180deg, #fbfdff 0%, #eaf2fd 45%, #d0e1f8 50%, #dbe8fa 100%) !important;
+      color: #1b3f8c !important;
+    }
+
+    .win-table td {
+      border-right: 1px solid #dbe3ee;
+      border-bottom: 1px solid #dbe3ee;
+      padding: 2px 4px;
+      vertical-align: middle;
+      background-color: #ffffff;
+    }
+    .win-table td:last-child { border-right: none; }
+
+    .win-table tbody tr:nth-child(even) td { background-color: #f7f9fd; }
+    .win-table tbody tr:hover td { background: linear-gradient(180deg, #f8fcff 0%, #e8f3fd 100%); }
+    .win-table tbody tr:focus-within td { background: linear-gradient(180deg, #eaf4fe 0%, #d6e8fb 100%); }
+
+    /* Fila de filtros */
+    #filaFiltros td { background: linear-gradient(180deg, #f6f9fd 0%, #e7eef8 100%); border-bottom: 1px solid #9fb2cb; }
+    #filaFiltros .cell-input { background-color: #ffffff; }
+    #filaFiltros .cell-input::placeholder { font-style: italic; }
+
+    /* Fila de totales: barra de estado */
+    .win-table tfoot td {
+      background: linear-gradient(180deg, #f5f8fd 0%, #dde7f3 100%);
+      border-top: 1px solid #9fb2cb;
+      border-bottom: none;
+    }
+    .win-table tfoot td[class*="e6f4ea"],
+    .win-table tfoot td[class*="bg-blue-50"],
+    .win-table tfoot td[class*="bg-indigo-50"],
+    .win-table tfoot td[class*="e8f0fe"] {
+      background: linear-gradient(180deg, #fafcff 0%, #d4e3f6 100%);
+    }
+
+    /* Botón eliminar fila */
+    .win-table td button[title="Eliminar fila"] { border-radius: 3px; }
+    .win-table td button[title="Eliminar fila"]:hover {
+      background: linear-gradient(180deg, #f6a8a0 0%, #e2564a 48%, #c9261a 50%, #dc5246 100%) !important;
+      color: #ffffff !important;
+      box-shadow: inset 0 0 0 1px #7a1c14, inset 0 1px 0 rgba(255,255,255,.5);
+    }
+
+    /* ---------- Campos de texto ---------- */
+    .cell-input {
+      width: 100%;
+      height: 28px;
+      padding: 2px 6px;
+      border: 1px solid #b5c3d6;
+      border-radius: 2px;
+      font-size: 0.8125rem;
+      background-color: #ffffff;
+      color: #111827;
+      box-shadow: inset 0 1px 1px rgba(0,0,0,.05);
+      transition: border-color 0.1s ease, box-shadow 0.1s ease;
+    }
+    .cell-input::placeholder { color: #9aa7b8; }
+    .cell-input:hover:not(:focus) { border-color: #7eb4ea; }
     .cell-input:focus {
       outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+      border-color: #3c7fb1;
+      box-shadow: inset 0 0 0 1px #8cc4f1;
+      background-color: #ffffff;
     }
 
-    /* Computed Readonly inputs */
     .cell-readonly {
-      background-color: #f0fdf4 !important;
-      color: #166534 !important;
+      background: linear-gradient(180deg, #f6fbf7 0%, #e5f2e8 100%) !important;
+      color: #14532d !important;
       font-weight: 600;
-      border-color: #bbf7d0 !important;
+      border-color: #aecfb4 !important;
     }
-
     .cell-readonly-highlight {
-      background-color: #eff6ff !important;
-      color: #1e40af !important;
+      background: linear-gradient(180deg, #f5f9ff 0%, #dde9fa 100%) !important;
+      color: #17408b !important;
       font-weight: 700;
-      border-color: #bfdbfe !important;
+      border-color: #a9c4e8 !important;
     }
 
-    /* Print styling rules */
+    .win-input-group {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #abadb3;
+      border-top-color: #8e9096;
+      border-radius: 2px;
+      font-size: 0.8125rem;
+      background-color: #ffffff;
+      color: #111827;
+      box-shadow: inset 1px 1px 2px rgba(0,0,0,.07);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .win-input-group:hover:not(:focus) { border-color: #7eb4ea; }
+    .win-input-group:focus {
+      outline: none;
+      border-color: #3c7fb1;
+      box-shadow: inset 0 0 0 1px #8cc4f1, 0 0 4px rgba(60,127,177,.45);
+    }
+
+    /* ---------- Botones glossy Windows 7 ---------- */
+    .win-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 5px 12px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-radius: 3px;
+      border: 1px solid #707070;
+      background: linear-gradient(180deg, #f2f2f2 0%, #ebebeb 48%, #dddddd 50%, #cfcfcf 100%);
+      color: #1b1b1b;
+      text-shadow: 0 1px 0 rgba(255,255,255,.6);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.85), 0 1px 1px rgba(0,0,0,.08);
+      cursor: pointer;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+    .win-btn:hover:not(:disabled) {
+      background: linear-gradient(180deg, #eaf6fd 0%, #d9f0fc 48%, #bee6fd 50%, #a7d9f5 100%);
+      border-color: #3c7fb1;
+      color: #111111;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 3px rgba(60,127,177,.4);
+    }
+    .win-btn:active:not(:disabled) {
+      background: linear-gradient(180deg, #e5f4fc 0%, #c4e5f6 48%, #98d1ef 50%, #68b3db 100%);
+      border-color: #2c628b;
+      box-shadow: inset 1px 1px 3px rgba(0,0,0,.25);
+      transform: translateY(1px);
+    }
+    .win-btn:focus-visible { outline: 1px dotted #000000; outline-offset: -4px; }
+    .win-btn:disabled { opacity: .55; cursor: default; }
+
+    .win-btn-primary {
+      background: linear-gradient(180deg, #8fc7f2 0%, #5fb0ea 48%, #2f8fdb 50%, #4ea6e8 100%);
+      color: #ffffff;
+      border-color: #1d5f98;
+      text-shadow: 0 -1px 0 rgba(0,40,90,.55);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.45), 0 1px 1px rgba(0,0,0,.2);
+    }
+    .win-btn-primary:hover:not(:disabled) {
+      background: linear-gradient(180deg, #a6d4f6 0%, #79bff0 48%, #3f9ce6 50%, #66b6ee 100%);
+      color: #ffffff;
+      border-color: #14507f;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.55), 0 0 5px rgba(51,153,255,.6);
+    }
+    .win-btn-primary:active:not(:disabled) {
+      background: linear-gradient(180deg, #4a95d0 0%, #2f7fc0 48%, #1c68ab 50%, #2e80c4 100%);
+      color: #ffffff;
+      border-color: #0f3f68;
+      box-shadow: inset 1px 1px 3px rgba(0,0,0,.35);
+    }
+
+    .win-btn-secondary {
+      background: linear-gradient(180deg, #8795aa 0%, #6a7a92 48%, #4a5c76 50%, #5f7089 100%);
+      color: #ffffff;
+      border-color: #2c3a4e;
+      text-shadow: 0 -1px 0 rgba(0,0,0,.5);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.28), 0 1px 1px rgba(0,0,0,.2);
+    }
+    .win-btn-secondary:hover:not(:disabled) {
+      background: linear-gradient(180deg, #9aa8bc 0%, #7d8da6 48%, #5b6e8a 50%, #70829c 100%);
+      color: #ffffff;
+      border-color: #223045;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.35), 0 0 5px rgba(51,153,255,.5);
+    }
+    .win-btn-secondary:active:not(:disabled) {
+      background: linear-gradient(180deg, #4a5a70 0%, #3b4a60 48%, #2d3b50 50%, #3a4a60 100%);
+      color: #ffffff;
+      box-shadow: inset 1px 1px 3px rgba(0,0,0,.4);
+    }
+
+    /* ---------- Barras de desplazamiento estilo Windows 7 ---------- */
+    ::-webkit-scrollbar { height: 14px; width: 14px; }
+    ::-webkit-scrollbar-track {
+      background: linear-gradient(90deg, #e6e6e6 0%, #f4f4f4 50%, #ececec 100%);
+      border: 1px solid #dcdcdc;
+    }
+    ::-webkit-scrollbar-thumb {
+      border: 1px solid #979797;
+      border-radius: 3px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.8);
+    }
+    ::-webkit-scrollbar-thumb:horizontal { background: linear-gradient(180deg, #f6f6f6 0%, #e4e4e4 48%, #d3d3d3 50%, #dedede 100%); }
+    ::-webkit-scrollbar-thumb:vertical   { background: linear-gradient(90deg,  #f6f6f6 0%, #e4e4e4 48%, #d3d3d3 50%, #dedede 100%); }
+    ::-webkit-scrollbar-thumb:hover { border-color: #3c7fb1; background: linear-gradient(180deg, #eaf6fd 0%, #bee6fd 50%, #a7d9f5 100%); }
+    ::-webkit-scrollbar-corner { background: #ececec; }
+
+    /* ---------- Menús desplegables (menú contextual de Windows 7) ---------- */
+    .dropdown-menu {
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+      transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+    }
+    .dropdown-menu.dropdown-open {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    div.dropdown-menu {
+      background: linear-gradient(90deg, #f1f1f1 0, #f1f1f1 32px, #e2e3e3 32px, #e2e3e3 33px, #ffffff 33px) !important;
+      border: 1px solid #979797 !important;
+      border-radius: 3px !important;
+      padding: 2px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 2px 3px 4px rgba(0,0,0,.35) !important;
+    }
+    div.dropdown-menu > * {
+      color: #1b1b1b;
+      border: 1px solid transparent !important;
+      border-radius: 3px;
+    }
+    div.dropdown-menu > label:hover,
+    div.dropdown-menu > button:hover {
+      background: linear-gradient(180deg, #fafbfe 0%, #ebf3fd 48%, #dbebfc 50%, #cfe4fb 100%) !important;
+      border-color: #7da2ce !important;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.8);
+    }
+
+    /* ---------- Notificación (globo de Windows) ---------- */
+    #toast {
+      background: linear-gradient(180deg, rgba(74,98,132,.97) 0%, rgba(40,58,88,.97) 48%, rgba(24,38,62,.97) 50%, rgba(34,50,78,.97) 100%) !important;
+      border: 1px solid rgba(255,255,255,.6) !important;
+      border-radius: 6px !important;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 6px 18px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.35) !important;
+    }
+
+    /* ---------- Impresión ---------- */
     @media print {
       .no-print {
         display: none !important;
       }
-      body {
-        background: white;
+      html, body {
+        background: white !important;
         padding: 0;
       }
-      .shadow-card {
+      .win-card {
         box-shadow: none !important;
-        border: 1px solid #ccc;
+        border: 1px solid #ccc !important;
       }
       .cell-input {
         border: none;
         background: transparent !important;
+        box-shadow: none;
       }
-    }
-
-    /* ---- Micro-interacciones ---- */
-
-    /* Efecto de "presión" sutil al hacer clic en cualquier botón */
-    button:not(:disabled) {
-      transition: transform 0.12s ease-out, background-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-    }
-    button:not(:disabled):active {
-      transform: scale(0.96);
-    }
-
-    /* Transición suave y consistente para filas de la tabla al pasar el mouse */
-    #tbodyPresupuesto tr {
-      transition: background-color 0.2s ease;
-    }
-
-    /* Menús desplegables: aparición con fade + leve deslizamiento, en vez de aparecer de golpe */
-    .dropdown-menu {
-      opacity: 0;
-      transform: translateY(-6px) scale(0.98);
-      pointer-events: none;
-      transition: opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1), transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
-      transform-origin: top left;
-    }
-    .dropdown-menu.dropdown-open {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      pointer-events: auto;
-    }
-
-    /* Toast: entrada/salida más suave */
-    #toast {
-      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    /* Foco más suave en inputs de metadata y filtros */
-    input, select {
-      transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
     }
   </style>
 </head>
-<body class="min-h-full flex flex-col text-slate-800">
+<body class="min-h-full flex flex-col text-gray-800">
 
-  <!-- Top Navigation / Header -->
-  <header class="bg-slate-900 text-white shadow-lg no-print">
-    <div class="max-w-[100%] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap justify-between items-center gap-4">
-      <div class="flex items-center space-x-4">
-        <div class="shrink-0 w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center shadow-md" aria-hidden="true">
-          <svg viewBox="0 0 64 64" class="w-7 h-7">
-            <rect x="20" y="14" width="24" height="30" rx="3" fill="white"/>
-            <rect x="24" y="20" width="16" height="2.5" rx="1" fill="#185FA5"/>
-            <rect x="24" y="26" width="16" height="2.5" rx="1" fill="#185FA5"/>
-            <rect x="24" y="32" width="10" height="2.5" rx="1" fill="#185FA5"/>
-            <circle cx="40" cy="42" r="9" fill="#185FA5" stroke="white" stroke-width="2"/>
-            <text x="40" y="46" font-family="Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">$</text>
+  <!-- Top Navigation / Header (Windows App Title Bar & Main Ribbon Header) -->
+  <header class="bg-[#1f2937] text-white shadow-md no-print border-b border-gray-700">
+    <!-- Window Bar Title Strip -->
+    <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
+      <div class="flex items-center gap-2">
+        <i class="fa-solid fa-calculator text-[#0078d4]"></i>
+        <span class="font-semibold text-gray-300">Generador de Presupuestos v2.5</span>
+        <span class="text-gray-600">|</span>
+        <span class="text-gray-400">Edición Local Windows</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conectado"></span>
+        <span class="text-[10px] text-gray-400">Conectado</span>
+      </div>
+    </div>
+
+    <!-- Main Header Action Ribbon -->
+    <div class="max-w-[100%] mx-auto px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded bg-[#0078d4] flex items-center justify-center shadow-sm" aria-hidden="true">
+          <svg viewBox="0 0 64 64" class="w-6 h-6">
+            <rect x="20" y="14" width="24" height="30" rx="1" fill="white"/>
+            <rect x="24" y="20" width="16" height="2.5" fill="#0078d4"/>
+            <rect x="24" y="26" width="16" height="2.5" fill="#0078d4"/>
+            <rect x="24" y="32" width="10" height="2.5" fill="#0078d4"/>
+            <circle cx="40" cy="42" r="9" fill="#0078d4" stroke="white" stroke-width="2"/>
+            <text x="40" y="46" font-family="Segoe UI, sans-serif" font-size="11" font-weight="bold" fill="white" text-anchor="middle">$</text>
           </svg>
         </div>
         <div>
-          <h1 class="text-xl font-bold tracking-tight text-white">Generador de Presupuestos</h1>
-          <p class="text-xs text-slate-400">Cálculo en cascada, márgenes y carga masiva mediante plantilla reducida de Excel</p>
+          <h1 class="text-lg font-semibold tracking-tight text-white leading-tight">Generador de Presupuestos</h1>
+          <p class="text-xs text-gray-400">Cálculo en cascada, márgenes, autocompletado y carga masiva mediante Excel</p>
         </div>
       </div>
-      <div class="flex items-center flex-wrap gap-2.5">
-        <button onclick="cargarDatosEjemplo()" class="bg-slate-600 hover:bg-slate-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
-          <i class="fa-solid fa-vial"></i> Cargar Datos de Prueba
+
+      <div class="flex items-center flex-wrap gap-2">
+        <button onclick="cargarDatosEjemplo()" class="win-btn text-xs">
+          <i class="fa-solid fa-flask text-gray-600"></i> Cargar Datos de Prueba
         </button>
 
         <!-- Menú desplegable: Importar -->
         <div class="relative dropdown-wrapper">
-          <button type="button" onclick="toggleDropdown('dropdownImportar')" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
-            <i class="fa-solid fa-file-import"></i> Importar <i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i>
+          <button type="button" onclick="toggleDropdown('dropdownImportar')" class="win-btn win-btn-primary text-xs">
+            <i class="fa-solid fa-file-import"></i> Importar <i class="fa-solid fa-chevron-down text-[9px] ml-0.5 opacity-80"></i>
           </button>
-          <div id="dropdownImportar" class="dropdown-menu absolute left-0 mt-1.5 w-60 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
-            <label class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors">
-              <i class="fa-solid fa-file-excel text-blue-600 w-4 text-center"></i> Importar Excel / CSV
+          <div id="dropdownImportar" class="dropdown-menu absolute right-0 sm:left-0 mt-1 w-56 bg-white rounded-sm shadow-xl border border-gray-300 z-50 overflow-hidden">
+            <label class="flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] cursor-pointer transition-colors border-b border-gray-100">
+              <i class="fa-solid fa-file-excel text-[#0078d4] w-4 text-center"></i> Importar Excel / CSV
               <input type="file" id="inputExcel" accept=".xlsx, .xls, .csv" onchange="importarExcel(event)" class="hidden">
             </label>
-            <label class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-t border-slate-100" title="Cargar un respaldo JSON previamente guardado">
-              <i class="fa-solid fa-file-import text-blue-600 w-4 text-center"></i> Cargar Backup JSON
+            <label class="flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] cursor-pointer transition-colors" title="Cargar un respaldo JSON previamente guardado">
+              <i class="fa-solid fa-file-code text-[#0078d4] w-4 text-center"></i> Cargar Backup JSON
               <input type="file" id="inputBackupJSON" accept=".json,application/json" onchange="cargarBackupJSON(event)" class="hidden">
             </label>
           </div>
@@ -175,21 +446,21 @@
 
         <!-- Menú desplegable: Exportar -->
         <div class="relative dropdown-wrapper">
-          <button type="button" onclick="toggleDropdown('dropdownExportar')" class="bg-teal-600 hover:bg-teal-500 text-white px-3.5 py-2 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 shadow-sm">
-            <i class="fa-solid fa-file-export"></i> Exportar <i class="fa-solid fa-chevron-down text-[9px] opacity-80"></i>
+          <button type="button" onclick="toggleDropdown('dropdownExportar')" class="win-btn win-btn-secondary text-xs">
+            <i class="fa-solid fa-file-export"></i> Exportar <i class="fa-solid fa-chevron-down text-[9px] ml-0.5 opacity-80"></i>
           </button>
-          <div id="dropdownExportar" class="dropdown-menu absolute left-0 mt-1.5 w-60 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
-            <button type="button" onclick="guardarBackupJSON()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left" title="Guardar respaldo completo en archivo JSON">
-              <i class="fa-solid fa-floppy-disk text-teal-600 w-4 text-center"></i> Respaldo JSON
+          <div id="dropdownExportar" class="dropdown-menu absolute right-0 mt-1 w-56 bg-white rounded-sm shadow-xl border border-gray-300 z-50 overflow-hidden">
+            <button type="button" onclick="guardarBackupJSON()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left">
+              <i class="fa-solid fa-floppy-disk text-gray-600 w-4 text-center"></i> Respaldo JSON
             </button>
-            <button type="button" onclick="exportarPDF()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100" title="Generar PDF del presupuesto para enviar al cliente">
-              <i class="fa-solid fa-file-pdf text-teal-600 w-4 text-center"></i> Exportar PDF
+            <button type="button" onclick="exportarPDF()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
+              <i class="fa-solid fa-file-pdf text-red-600 w-4 text-center"></i> Exportar PDF
             </button>
-            <button type="button" onclick="exportarCSV()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100">
-              <i class="fa-solid fa-file-csv text-teal-600 w-4 text-center"></i> Exportar CSV
+            <button type="button" onclick="exportarCSV()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
+              <i class="fa-solid fa-file-csv text-emerald-600 w-4 text-center"></i> Exportar CSV
             </button>
-            <button type="button" onclick="exportarPlantillaMylogic()" class="hidden w-full items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 transition-colors text-left border-t border-slate-100" title="Exportar hoja Excel en formato Mylogic">
-              <i class="fa-solid fa-file-export text-teal-600 w-4 text-center"></i> Plantilla Mylogic
+            <button type="button" onclick="exportarPlantillaMylogic()" class="hidden w-full items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
+              <i class="fa-solid fa-file-export text-blue-600 w-4 text-center"></i> Plantilla Mylogic
             </button>
           </div>
         </div>
@@ -198,26 +469,31 @@
   </header>
 
   <!-- Main Container -->
-  <main class="flex-grow max-w-[100%] w-full px-4 sm:px-6 lg:px-8 py-6">
+  <main class="flex-grow max-w-[100%] w-full px-4 sm:px-6 py-5">
 
     <!-- Presupuesto Metadata Header -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6 shadow-card">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="win-card p-4 mb-4">
+      <div class="text-xs font-semibold text-gray-700 border-b border-gray-200 pb-2 mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-[#0078d4]"></i>
+        <span>DATOS GENERALES DEL PRESUPUESTO</span>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
-          <input type="text" id="metaCliente" placeholder="Ej: Distribuidora Lopez S.A." class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
+          <input type="text" id="metaCliente" placeholder="Ej: Distribuidora Lopez S.A." class="win-input-group">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Nº Presupuesto</label>
-          <input type="text" id="metaNumero" value="PRES-2026-001" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Nº Presupuesto</label>
+          <input type="text" id="metaNumero" value="PRES-2026-001" class="win-input-group font-mono">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Fecha de Emisión</label>
-          <input type="date" id="metaFecha" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Fecha Vigencia Presupuesto</label>
+          <input type="date" id="metaFecha" class="win-input-group">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Moneda del Presupuesto</label>
-          <select id="metaMoneda" onchange="actualizarMoneda()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Moneda del Presupuesto</label>
+          <select id="metaMoneda" onchange="actualizarMoneda()" class="win-input-group bg-white">
             <option value="$">PESOS ($)</option>
             <option value="USD">DÓLAR BNA (USD)</option>
             <option value="DIVISA">DÓLAR DIVISA</option>
@@ -226,152 +502,151 @@
         </div>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-slate-100">
+      <div class="mt-3 pt-3 border-t border-gray-200">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Cotizaciones de Referencia ($ por unidad)</label>
-          <button type="button" onclick="actualizarCotizaciones()" id="btnActualizarTC" class="shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" title="Buscar automáticamente las 3 cotizaciones (fuente: BNA / DolarAPI)">
-            <i class="fa-solid fa-rotate" id="iconoActualizarTC"></i> Actualizar Cotizaciones
+          <label class="text-[11px] font-semibold text-gray-600 uppercase tracking-wider">Cotizaciones de Referencia ($ por unidad)</label>
+          <button type="button" onclick="actualizarCotizaciones()" id="btnActualizarTC" class="win-btn text-xs hover:border-[#0078d4]" title="Buscar automáticamente las 3 cotizaciones (fuente: BNA / DolarAPI)">
+            <i class="fa-solid fa-rotate text-[#0078d4]" id="iconoActualizarTC"></i> Actualizar Cotizaciones
           </button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
-            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Dólar BNA (billete)</label>
-            <input type="number" id="metaTCBNA" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Dólar BNA (billete)</label>
+            <input type="number" id="metaTCBNA" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Dólar Divisa (mayorista)</label>
-            <input type="number" id="metaTCDivisa" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Dólar Divisa (mayorista)</label>
+            <input type="number" id="metaTCDivisa" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
           <div>
-            <label class="block text-[10px] font-medium text-slate-500 uppercase tracking-wider mb-1">Euro</label>
-            <input type="number" id="metaTCEUR" value="1150" min="0" step="0.01" onchange="actualizarTipoCambio()" class="w-full text-sm border-slate-300 rounded-lg p-2 border focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Euro</label>
+            <input type="number" id="metaTCEUR" value="1150" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
         </div>
-        <p id="infoCotizacionBNA" class="text-[10px] text-slate-500 mt-1.5"></p>
+        <p id="infoCotizacionBNA" class="text-[10px] text-gray-500 mt-1.5 font-mono"></p>
       </div>
     </div>
 
-    <!-- Toolbar for Table -->
-    <div class="flex flex-wrap justify-between items-center gap-3 mb-4 no-print">
+    <!-- Toolbar for Table Actions -->
+    <div class="flex flex-wrap justify-between items-center gap-2 mb-3 no-print">
       <div class="flex items-center gap-2">
-        <button onclick="agregarFila()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-sm">
+        <button onclick="agregarFila()" class="win-btn win-btn-primary text-xs">
           <i class="fa-solid fa-plus"></i> Agregar Ítem
         </button>
-        <button onclick="agregarMultiplesFilas(5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs px-3 py-2 rounded-lg border border-slate-300 transition">
+        <button onclick="agregarMultiplesFilas(5)" class="win-btn text-xs">
           +5 Filas
         </button>
       </div>
 
-      <!-- Banner Informativo de Plantilla Reducida -->
-      <div class="hidden md:flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1.5 rounded-lg text-xs">
-        <i class="fa-solid fa-circle-info"></i>
-        <span><strong>Plantilla Reducida Excel:</strong> Importa columnas <i>CANTIDAD, CODIGO, DETALLE, PRECIO_LISTA, PROVEEDOR</i>.</span>
-      </div>
-
       <div class="flex items-center gap-2">
-        <button onclick="limpiarFiltros()" class="bg-amber-50 hover:bg-amber-100 text-amber-700 font-medium text-xs px-3 py-2 rounded-lg border border-amber-200 transition flex items-center gap-1.5" title="Limpiar todos los filtros aplicados">
-          <i class="fa-solid fa-filter-circle-xmark"></i> Limpiar Filtros
+        <button onclick="limpiarFiltros()" class="win-btn text-xs" title="Limpiar todos los filtros aplicados">
+          <i class="fa-solid fa-filter-circle-xmark text-gray-500"></i> Limpiar Filtros
         </button>
-        <button onclick="limpiarTodo()" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-medium text-xs px-3 py-2 rounded-lg border border-rose-200 transition flex items-center gap-1.5">
-          <i class="fa-solid fa-trash"></i> Limpiar Todo
+        <button onclick="limpiarTodo()" class="win-btn text-xs text-red-600 hover:text-red-700" title="Reiniciar tabla">
+          <i class="fa-solid fa-trash-can"></i> Limpiar Todo
         </button>
       </div>
     </div>
 
-    <!-- Barra de Reemplazo Global -->
-    <div class="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-4 flex flex-wrap items-center gap-2 no-print">
-      <span class="text-xs font-bold text-purple-800 flex items-center gap-1.5 mr-1">
-        <i class="fa-solid fa-wand-magic-sparkles"></i> Reemplazo Global:
+    <!-- Barra de Reemplazo Global Estilo Windows Ribbon -->
+    <div class="win-card p-2.5 mb-3 flex flex-wrap items-center gap-2 text-xs no-print border-l-4 border-l-[#0078d4]">
+      <span class="font-semibold text-gray-700 flex items-center gap-1.5 mr-1">
+        <i class="fa-solid fa-wand-magic-sparkles text-[#0078d4]"></i> Reemplazo Global:
       </span>
-      <select id="globalCampo" onchange="actualizarTipoInputGlobal()" class="text-xs border-purple-300 rounded-lg p-2 border focus:ring-2 focus:ring-purple-500 outline-none bg-white">
+      <select id="globalCampo" onchange="actualizarTipoInputGlobal()" class="win-input-group !w-auto">
         <option value="col-d1">Descuento 1</option>
         <option value="col-d2">Descuento 2</option>
         <option value="col-d3">Descuento 3</option>
         <option value="col-d4">Descuento 4</option>
         <option value="col-d5">Descuento 5</option>
         <option value="col-margen">Margen</option>
+        <option value="col-marca">Marca</option>
         <option value="col-origen">Proveedor</option>
       </select>
-      <input type="number" id="globalValor" step="0.01" placeholder="Valor %" class="text-xs border-purple-300 rounded-lg p-2 border w-24 focus:ring-2 focus:ring-purple-500 outline-none">
-      <button onclick="aplicarReemplazoGlobal()" class="bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5" title="Aplica el valor solo a las filas visibles según los filtros activos (ej: filtrando por Origen)">
-        <i class="fa-solid fa-check"></i> Aplicar a filas filtradas
+      <input type="number" id="globalValor" step="0.01" placeholder="Valor %" class="win-input-group !w-24 font-mono">
+      <button onclick="aplicarReemplazoGlobal()" class="win-btn win-btn-primary text-xs" title="Aplica el valor solo a las filas visibles según los filtros activos">
+        <i class="fa-solid fa-check"></i> Aplicar a filas visibles
       </button>
-      <button id="btnDeshacerGlobal" onclick="deshacerReemplazoGlobal()" class="hidden bg-slate-600 hover:bg-slate-500 text-white font-medium text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-1.5" title="Restaura los valores previos a la última aplicación de reemplazo global">
+      <button id="btnDeshacerGlobal" onclick="deshacerReemplazoGlobal()" class="hidden win-btn text-xs" title="Restaura los valores previos">
         <i class="fa-solid fa-rotate-left"></i> Deshacer
       </button>
-      <span class="text-[11px] text-purple-700 italic">Filtrá primero por Origen (u otra columna) arriba en la tabla, y luego aplicá el valor solo a esas filas visibles.</span>
+      <span class="text-[11px] text-gray-500 italic ml-auto">Filtrá primero en la grilla y luego aplicá el valor a las filas visibles.</span>
     </div>
 
-    <!-- Table Container -->
-    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden shadow-card">
+    <!-- Table Container (Windows DataGrid Frame) -->
+    <div class="win-card overflow-hidden">
       <div class="overflow-x-auto table-scroll">
-        <table id="tablaPresupuesto" class="w-full text-left border-collapse min-w-[1850px]">
+        <table id="tablaPresupuesto" class="win-table min-w-[1950px] text-left">
           <thead>
-            <tr class="bg-slate-100 text-slate-700 text-[11px] uppercase tracking-wider font-semibold border-b border-slate-300">
-              <th class="p-2.5 text-center w-10 no-print">#</th>
-              <th class="p-2.5 w-16 text-center">N° Item</th>
-              <th class="p-2.5 w-20 text-center">1. Cantidad</th>
-              <th class="p-2.5 w-28">2. Código</th>
-              <th class="p-2.5 w-64">3. Detalle Artículo</th>
-              <th class="p-2.5 w-40">4. Observaciones</th>
-              <th class="p-2.5 w-32 text-right">5. Precio Lista Prov.</th>
-              <th class="p-2.5 w-20 text-center">Moneda Costo</th>
-              <th class="p-2.5 w-20 text-center">6. Desc 1 %</th>
-              <th class="p-2.5 w-20 text-center">7. Desc 2 %</th>
-              <th class="p-2.5 w-20 text-center">8. Desc 3 %</th>
-              <th class="p-2.5 w-20 text-center">9. Desc 4 %</th>
-              <th class="p-2.5 w-20 text-center">10. Desc 5 %</th>
-              <th class="p-2.5 w-32 text-right bg-emerald-100 text-emerald-800">11. Costo Neto Unit.</th>
-              <th class="p-2.5 w-24 text-center">12. Margen %</th>
-              <th class="p-2.5 w-32 text-right bg-emerald-100 text-emerald-800">13. Precio Venta Unit.</th>
-              <th class="p-2.5 w-36 text-right bg-emerald-100 text-emerald-800">14. Total Precio Venta</th>
-              <th class="p-2.5 w-28">15. Proveedor</th>
-              <th class="p-2.5 w-28">16. Código Cliente A</th>
-              <th class="p-2.5 w-28">17. Código Cliente B</th>
-              <th class="p-2.5 w-10 text-center no-print">Acción</th>
+            <tr class="text-[11px] uppercase tracking-wider font-semibold">
+              <th class="text-center w-10 no-print">#</th>
+              <th class="w-16 text-center">N° Item</th>
+              <th class="w-20 text-center">1. Cantidad</th>
+              <th class="w-28">2. Código</th>
+              <th class="w-64">3. Detalle Artículo</th>
+              <th class="w-32">4. Marca</th>
+              <th class="w-40">5. Observaciones</th>
+              <th class="w-32 text-right">6. Precio Lista Prov.</th>
+              <th class="w-20 text-center">Moneda Costo</th>
+              <th class="w-20 text-center">7. Desc 1 %</th>
+              <th class="w-20 text-center">8. Desc 2 %</th>
+              <th class="w-20 text-center">9. Desc 3 %</th>
+              <th class="w-20 text-center">10. Desc 4 %</th>
+              <th class="w-20 text-center">11. Desc 5 %</th>
+              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">12. Costo Neto Unit.</th>
+              <th class="w-24 text-center">13. Margen %</th>
+              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">14. Precio Venta Unit.</th>
+              <th class="w-36 text-right !bg-[#e8f0fe] text-blue-900">15. Total Precio Venta</th>
+              <th class="w-28">16. Proveedor</th>
+              <th class="w-28">17. Código Cliente A</th>
+              <th class="w-28">18. Código Cliente B</th>
+              <th class="w-10 text-center no-print">Acción</th>
             </tr>
+
             <!-- Fila de Filtros por Columna -->
-            <tr id="filaFiltros" class="bg-slate-50 text-slate-600 text-[11px] no-print border-b border-slate-200">
-              <td class="p-1 text-center text-slate-400"><i class="fa-solid fa-filter text-xs"></i></td>
-              <td class="p-1"><input type="text" data-col="col-nroitem" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-cantidad" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-codigo" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-detalle" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-obs" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-precio" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-monedafila" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-d1" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-d2" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-d3" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-d4" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-d5" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-costo" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-margen" oninput="filtrarTabla()" placeholder="%" class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500 text-center"></td>
-              <td class="p-1"><input type="text" data-col="col-venta" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-totventa" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-origen" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-codcliente" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
-              <td class="p-1"><input type="text" data-col="col-codcliente2" oninput="filtrarTabla()" placeholder="Filtrar..." class="w-full text-xs px-1.5 py-1 rounded bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-blue-500"></td>
+            <tr id="filaFiltros" class="bg-[#f9fafb] text-[11px] no-print">
+              <td class="p-1 text-center text-gray-400"><i class="fa-solid fa-filter text-[10px]"></i></td>
+              <td class="p-1"><input type="text" data-col="col-nroitem" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-cantidad" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-codigo" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-detalle" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-marca" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-obs" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-precio" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
+              <td class="p-1"><input type="text" data-col="col-monedafila" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d1" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d2" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d3" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d4" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-d5" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-costo" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
+              <td class="p-1"><input type="text" data-col="col-margen" oninput="filtrarTabla()" placeholder="%" class="cell-input text-center"></td>
+              <td class="p-1"><input type="text" data-col="col-venta" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
+              <td class="p-1"><input type="text" data-col="col-totventa" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
+              <td class="p-1"><input type="text" data-col="col-origen" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-codcliente" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-codcliente2" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1 no-print"></td>
             </tr>
           </thead>
-          <tbody id="tbodyPresupuesto" class="divide-y divide-slate-200 text-xs">
+          <tbody id="tbodyPresupuesto" class="text-xs">
             <!-- Rows injected by JavaScript -->
           </tbody>
 
           <tfoot>
-            <tr class="bg-slate-100 text-slate-800 font-bold text-xs border-t-2 border-slate-300">
-              <td class="p-3 text-center no-print">∑</td>
-              <td id="totalCantidad" class="p-3 text-center text-indigo-700 font-mono">0</td>
-              <td colspan="3" class="p-3 text-right uppercase tracking-wider">Totales Consolidados:</td>
-              <td id="totalPrecioLista" class="p-3 text-right font-mono">$ 0.00</td>
-              <td colspan="5" class="p-3 text-center text-slate-400 font-normal text-[10px]">(Aplica descuento en cascada)</td>
-              <td id="totalCostoNetoUnit" class="p-3 text-right text-emerald-800 font-mono text-xs bg-emerald-50">$ 0.00</td>
-              <td id="promedioMargen" class="p-3 text-center text-blue-800 font-mono bg-blue-50">0.0%</td>
-              <td id="totalPrecioVentaUnit" class="p-3 text-right text-indigo-800 font-mono text-xs bg-indigo-50">$ 0.00</td>
-              <td id="totalPrecioVentaFila" class="p-3 text-right text-blue-900 font-mono text-base bg-blue-100">$ 0.00</td>
-              <td colspan="2" class="p-3"></td>
-              <td class="p-3 no-print"></td>
+            <tr class="bg-[#f3f4f6] text-gray-800 font-bold text-xs border-t-2 border-gray-400">
+              <td class="p-2 text-center no-print">∑</td>
+              <td class="p-2"></td>
+              <td id="totalCantidad" class="p-2 text-center text-[#0078d4] font-mono">0</td>
+              <td colspan="4" class="p-2 text-right uppercase tracking-wider text-[11px] text-gray-600">Totales Consolidados:</td>
+              <td id="totalPrecioLista" class="p-2 text-right font-mono">$ 0.00</td>
+              <td colspan="6" class="p-2 text-center text-gray-400 font-normal text-[10px]">(Aplica descuento en cascada)</td>
+              <td id="totalCostoNetoUnit" class="p-2 text-right text-emerald-800 font-mono text-xs bg-[#e6f4ea]">$ 0.00</td>
+              <td id="promedioMargen" class="p-2 text-center text-blue-800 font-mono bg-blue-50">0.0%</td>
+              <td id="totalPrecioVentaUnit" class="p-2 text-right text-blue-900 font-mono text-xs bg-indigo-50">$ 0.00</td>
+              <td id="totalPrecioVentaFila" class="p-2 text-right text-[#0078d4] font-mono text-sm bg-[#e8f0fe] font-bold">$ 0.00</td>
+              <td colspan="3" class="p-2"></td>
+              <td class="p-2 no-print"></td>
             </tr>
           </tfoot>
         </table>
@@ -379,61 +654,102 @@
     </div>
 
     <!-- Executive KPI Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+      <div class="win-card p-3 flex items-center justify-between">
         <div>
-          <p class="text-xs font-medium text-slate-500 uppercase">Unidades Totales</p>
-          <p id="kpiUnidades" class="text-2xl font-bold text-slate-800 mt-1">0</p>
+          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Unidades Totales</p>
+          <p id="kpiUnidades" class="text-xl font-bold text-gray-800 font-mono mt-0.5">0</p>
         </div>
-        <div class="p-3 bg-blue-50 text-blue-600 rounded-lg">
-          <i class="fa-solid fa-cubes text-xl"></i>
+        <div class="p-2.5 bg-[#e5f3ff] text-[#0078d4] rounded-sm">
+          <i class="fa-solid fa-cubes text-lg"></i>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+      <div class="win-card p-3 flex items-center justify-between">
         <div>
-          <p class="text-xs font-medium text-slate-500 uppercase">Costo Neto Total</p>
-          <p id="kpiCosto" class="text-2xl font-bold text-emerald-600 mt-1">$ 0.00</p>
+          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Costo Neto Total</p>
+          <p id="kpiCosto" class="text-xl font-bold text-emerald-700 font-mono mt-0.5">$ 0.00</p>
         </div>
-        <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-          <i class="fa-solid fa-coins text-xl"></i>
+        <div class="p-2.5 bg-[#e6f4ea] text-emerald-700 rounded-sm">
+          <i class="fa-solid fa-coins text-lg"></i>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+      <div class="win-card p-3 flex items-center justify-between">
         <div>
-          <p class="text-xs font-medium text-slate-500 uppercase">Precio Venta Total</p>
-          <p id="kpiVenta" class="text-2xl font-bold text-indigo-600 mt-1">$ 0.00</p>
+          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Precio Venta Total</p>
+          <p id="kpiVenta" class="text-xl font-bold text-[#0078d4] font-mono mt-0.5">$ 0.00</p>
         </div>
-        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-          <i class="fa-solid fa-receipt text-xl"></i>
+        <div class="p-2.5 bg-[#e8f0fe] text-[#0078d4] rounded-sm">
+          <i class="fa-solid fa-receipt text-lg"></i>
         </div>
       </div>
 
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between shadow-card">
+      <div class="win-card p-3 flex items-center justify-between">
         <div>
-          <p class="text-xs font-medium text-slate-500 uppercase">Ganancia Estimada</p>
-          <p id="kpiGanancia" class="text-2xl font-bold text-teal-600 mt-1">$ 0.00</p>
+          <p class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Ganancia Estimada</p>
+          <p id="kpiGanancia" class="text-xl font-bold text-teal-700 font-mono mt-0.5">$ 0.00</p>
         </div>
-        <div class="p-3 bg-teal-50 text-teal-600 rounded-lg">
-          <i class="fa-solid fa-chart-line text-xl"></i>
+        <div class="p-2.5 bg-teal-50 text-teal-700 rounded-sm">
+          <i class="fa-solid fa-chart-line text-lg"></i>
         </div>
       </div>
     </div>
 
   </main>
 
-  <!-- Notification Toast Modal (No alert) -->
-  <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl transition-all duration-300 transform translate-y-20 opacity-0 flex items-center gap-3 z-50 border border-slate-700">
-    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+  <!-- Windows Toast Notification Overlay -->
+  <div id="toast" class="fixed bottom-4 right-4 bg-[#1f2937] text-white px-4 py-2.5 rounded-sm shadow-xl transition-all duration-200 transform translate-y-16 opacity-0 flex items-center gap-3 z-50 border border-gray-600">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
     <span id="toastMessage" class="text-xs font-medium">Mensaje de notificación</span>
   </div>
 
   <!-- JavaScript Logic -->
   <script>
     let monedaActual = '$';
+    let mapaProductosGitHub = {}; // Mapa para almacenar { "CODIGO": { nombre: "...", marca: "..." } }
 
-    // Menús desplegables de la barra superior (Importar / Exportar)
+    // Conexión y descarga de la Base de Datos desde GitHub
+    async function cargarProductosGitHub() {
+      const urlCSV = 'https://raw.githubusercontent.com/leandrocuadro/productos.csv/refs/heads/main/productos.csv';
+      try {
+        const respuesta = await fetch(urlCSV);
+        if (!respuesta.ok) throw new Error('No se pudo descargar el archivo CSV');
+        const texto = await respuesta.text();
+
+        const lineas = texto.split(/\r\n|\n/);
+        if (lineas.length === 0) return;
+
+        // Limpiar encabezados
+        const encabezados = lineas[0].split(';').map(e => e.replace(/"/g, '').trim().toLowerCase());
+        
+        // Identificar índices de las columnas "Código", "Nombre" y "Marca"
+        const idxCodigo = encabezados.findIndex(h => h.includes('código') || h.includes('codigo'));
+        const idxNombre = encabezados.findIndex(h => h === 'nombre');
+        const idxMarca = encabezados.findIndex(h => h === 'marca');
+
+        if (idxCodigo === -1 || idxNombre === -1) {
+          console.warn("No se encontraron las columnas 'Código' o 'Nombre' en el CSV.");
+          return;
+        }
+
+        for (let i = 1; i < lineas.length; i++) {
+          if (!lineas[i].trim()) continue;
+          const columnas = lineas[i].split(';').map(c => c.replace(/"/g, '').trim());
+          if (columnas[idxCodigo] && columnas[idxNombre]) {
+            const codigo = columnas[idxCodigo].toUpperCase();
+            const nombre = columnas[idxNombre];
+            const marca = idxMarca !== -1 && columnas[idxMarca] ? columnas[idxMarca] : '';
+            mapaProductosGitHub[codigo] = { nombre, marca };
+          }
+        }
+        
+        mostrarToast("Base de datos de productos sincronizada desde GitHub", "info");
+      } catch (error) {
+        console.error("Error al cargar la base de datos de GitHub:", error);
+      }
+    }
+
     function toggleDropdown(id) {
       document.querySelectorAll('.dropdown-menu').forEach(el => {
         if (el.id !== id) el.classList.remove('dropdown-open');
@@ -446,11 +762,11 @@
         document.querySelectorAll('.dropdown-menu').forEach(el => el.classList.remove('dropdown-open'));
       }
     });
+
     let tipoCambioBNA = 1000;
     let tipoCambioDivisa = 1000;
     let tipoCambioEUR = 1150;
 
-    // Set today date by default
     document.getElementById('metaFecha').valueAsDate = new Date();
 
     let toastTimeoutId = null;
@@ -462,23 +778,21 @@
 
       toastMessage.innerText = mensaje;
       if (tipo === 'exito') {
-        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-lg";
+        toastIcon.className = "fa-solid fa-circle-check text-emerald-400 text-base";
       } else if (tipo === 'info') {
-        toastIcon.className = "fa-solid fa-circle-info text-blue-400 text-lg";
+        toastIcon.className = "fa-solid fa-circle-info text-blue-400 text-base";
       } else {
-        toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-lg";
+        toastIcon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-base";
       }
 
-      // Si había un toast por ocultarse, cancelamos ese timer para que el nuevo mensaje
-      // no desaparezca antes de tiempo ni genere un parpadeo al superponerse.
       if (toastTimeoutId) clearTimeout(toastTimeoutId);
 
-      toast.classList.remove('translate-y-20', 'opacity-0');
+      toast.classList.remove('translate-y-16', 'opacity-0');
       toast.classList.add('translate-y-0', 'opacity-100');
 
       toastTimeoutId = setTimeout(() => {
         toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('translate-y-20', 'opacity-0');
+        toast.classList.add('translate-y-16', 'opacity-0');
         toastTimeoutId = null;
       }, 3500);
     }
@@ -503,7 +817,7 @@
       btn.disabled = true;
       icono.classList.add('fa-spin');
       info.textContent = 'Consultando cotizaciones (BNA, Divisa, Euro)...';
-      info.className = 'text-[10px] text-slate-500 mt-1.5';
+      info.className = 'text-[10px] text-gray-500 mt-1.5 font-mono';
 
       const resultados = await Promise.allSettled([
         fetch('https://dolar-bna.vercel.app/api/cotizacion').then(r => {
@@ -553,11 +867,11 @@
       const hora = new Date().toLocaleString('es-AR');
       if (partesOk.length > 0) {
         info.textContent = `${partesOk.join(' · ')} · Actualizado: ${hora}` + (partesError.length > 0 ? ` (No se pudo obtener: ${partesError.join(', ')})` : '');
-        info.className = partesError.length > 0 ? 'text-[10px] text-amber-600 mt-1.5' : 'text-[10px] text-emerald-600 mt-1.5 font-medium';
+        info.className = partesError.length > 0 ? 'text-[10px] text-amber-600 mt-1.5 font-mono' : 'text-[10px] text-emerald-700 mt-1.5 font-mono font-medium';
         mostrarToast(partesError.length > 0 ? `Se actualizaron ${partesOk.length} de 3 cotizaciones.` : "Las 3 cotizaciones se actualizaron correctamente.", partesError.length > 0 ? "alerta" : "exito");
       } else {
         info.textContent = 'No se pudo obtener ninguna cotización. Verificá tu conexión o ingresá los valores manualmente.';
-        info.className = 'text-[10px] text-rose-600 mt-1.5';
+        info.className = 'text-[10px] text-red-600 mt-1.5 font-mono';
         mostrarToast("No se pudo actualizar ninguna cotización.", "alerta");
       }
 
@@ -565,7 +879,6 @@
       icono.classList.remove('fa-spin');
     }
 
-    // Devuelve cuántos pesos argentinos equivalen a 1 unidad de la moneda dada
     function obtenerTasaEnPesos(codigoMoneda) {
       switch (codigoMoneda) {
         case '$': return 1;
@@ -576,7 +889,6 @@
       }
     }
 
-    // Símbolo/etiqueta legible para mostrar en totales, KPIs y el PDF
     function obtenerSimboloMoneda(codigoMoneda) {
       switch (codigoMoneda) {
         case '$': return '$';
@@ -591,17 +903,17 @@
       const tbody = document.getElementById('tbodyPresupuesto');
       const numFila = tbody.children.length + 1;
       const tr = document.createElement('tr');
-      tr.className = "hover:bg-slate-50/80 transition-colors";
 
       tr.innerHTML = `
-        <td class="p-2 text-center text-slate-400 font-mono text-[11px] row-index no-print">${numFila}</td>
-        <td class="p-1.5"><input type="text" class="cell-input text-center font-bold col-nroitem" placeholder="Ej: 1" value="${datos && datos.nroItem !== undefined ? datos.nroItem : ''}"></td>
-        <td class="p-1.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${datos && datos.cantidad !== undefined ? datos.cantidad : 1}"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-codigo" placeholder="Ej: ART-101" value="${datos ? datos.codigo : ''}"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${datos ? datos.detalle : ''}"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${datos ? datos.obs : ''}"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${datos ? datos.precio : ''}"></td>
-        <td class="p-1.5">
+        <td class="p-1 text-center text-gray-400 font-mono text-[11px] row-index no-print">${numFila}</td>
+        <td class="p-0.5"><input type="text" class="cell-input text-center font-bold col-nroitem" placeholder="Ej: 1" value="${datos && datos.nroItem !== undefined ? datos.nroItem : ''}"></td>
+        <td class="p-0.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${datos && datos.cantidad !== undefined ? datos.cantidad : 1}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codigo font-mono" placeholder="Ej: ART-101" value="${datos ? datos.codigo : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${datos ? datos.detalle : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-marca" placeholder="Marca..." value="${datos ? datos.marca : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${datos ? datos.obs : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${datos ? datos.precio : ''}"></td>
+        <td class="p-0.5">
           <select class="cell-input text-center col-monedafila" onchange="calcularFila(this.closest('tr')); calcularTotalesGenerales();">
             <option value="$" ${(!datos || !datos.monedaFila || datos.monedaFila === '$') ? 'selected' : ''}>$ (ARS)</option>
             <option value="USD" ${(datos && datos.monedaFila === 'USD') ? 'selected' : ''}>U$S BNA</option>
@@ -609,26 +921,26 @@
             <option value="EUR" ${(datos && datos.monedaFila === 'EUR') ? 'selected' : ''}>€ Euro</option>
           </select>
         </td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${datos ? datos.d1 : ''}"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${datos ? datos.d2 : ''}"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${datos ? datos.d3 : ''}"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${datos ? datos.d4 : ''}"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${datos ? datos.d5 : ''}"></td>
-        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-costo" value="0.00"></td>
-        <td class="p-1.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${datos ? datos.margen : ''}"></td>
-        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-venta" value="0.00"></td>
-        <td class="p-1.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly-highlight col-totventa" value="0.00"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-origen" placeholder="Nac./Imp." value="${datos ? datos.origen : ''}"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-codcliente" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente : ''}"></td>
-        <td class="p-1.5"><input type="text" class="cell-input col-codcliente2" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente2 : ''}"></td>
-        <td class="p-1.5 text-center no-print">
-          <button onclick="eliminarFila(this)" class="text-slate-400 hover:text-rose-600 transition-colors p-1" title="Eliminar fila">
-            <i class="fa-solid fa-trash-can"></i>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${datos ? datos.d1 : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${datos ? datos.d2 : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${datos ? datos.d3 : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${datos ? datos.d4 : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${datos ? datos.d5 : ''}"></td>
+        <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-costo" value="0.00"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${datos ? datos.margen : ''}"></td>
+        <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-venta" value="0.00"></td>
+        <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly-highlight col-totventa" value="0.00"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-origen" placeholder="Nac./Imp." value="${datos ? datos.origen : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codcliente" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codcliente2" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente2 : ''}"></td>
+        <td class="p-0.5 text-center no-print">
+          <button onclick="eliminarFila(this)" class="text-gray-400 hover:text-red-600 transition-colors p-1" title="Eliminar fila">
+            <i class="fa-solid fa-xmark text-sm"></i>
           </button>
         </td>
       `;
 
-      // Event listeners for recalculation
+      // Event Listeners para cálculo automático
       const inputs = tr.querySelectorAll('input');
       inputs.forEach(input => {
         input.addEventListener('input', () => {
@@ -636,6 +948,24 @@
           calcularTotalesGenerales();
         });
       });
+
+      // Event Listener para autocompletar Detalle y Marca según el código
+      const inputCodigo = tr.querySelector('.col-codigo');
+      const inputDetalle = tr.querySelector('.col-detalle');
+      const inputMarca = tr.querySelector('.col-marca');
+      if (inputCodigo && inputDetalle) {
+        inputCodigo.addEventListener('input', function() {
+          const codigoBuscado = this.value.trim().toUpperCase();
+          if (mapaProductosGitHub[codigoBuscado]) {
+            const prod = mapaProductosGitHub[codigoBuscado];
+            inputDetalle.value = typeof prod === 'object' ? (prod.nombre || '') : prod;
+            if (inputMarca) inputMarca.value = typeof prod === 'object' ? (prod.marca || '') : '';
+          } else {
+            inputDetalle.value = "";
+            if (inputMarca) inputMarca.value = "";
+          }
+        });
+      }
 
       tbody.appendChild(tr);
 
@@ -673,8 +1003,6 @@
       const monedaFilaEl = tr.querySelector('.col-monedafila');
       const monedaFila = monedaFilaEl ? monedaFilaEl.value : '$';
 
-      // Conversión automática: convierte el precio de la fila a la moneda del presupuesto,
-      // pasando siempre por pesos argentinos como unidad intermedia
       if (monedaFila !== monedaActual) {
         const tasaOrigen = obtenerTasaEnPesos(monedaFila);
         const tasaDestino = obtenerTasaEnPesos(monedaActual);
@@ -690,7 +1018,6 @@
       const d5 = parseFloat(tr.querySelector('.col-d5').value) || 0;
       const margen = parseFloat(tr.querySelector('.col-margen').value) || 0;
 
-      // 1. Descuentos en cascada para Costo Neto Unitario
       let costoNetoUnit = precioLista;
       costoNetoUnit *= (1 - d1 / 100);
       costoNetoUnit *= (1 - d2 / 100);
@@ -698,13 +1025,9 @@
       costoNetoUnit *= (1 - d4 / 100);
       costoNetoUnit *= (1 - d5 / 100);
 
-      // 2. Margen sobre Costo para Precio Venta Unitario
       const precioVentaUnit = costoNetoUnit * (1 + margen / 100);
-
-      // 3. Total Precio Venta por Fila = Precio Venta Unitario x Cantidad
       const totalPrecioVentaFila = precioVentaUnit * cantidad;
 
-      // Actualizar DOM
       tr.querySelector('.col-costo').value = costoNetoUnit.toFixed(2);
       tr.querySelector('.col-venta').value = precioVentaUnit.toFixed(2);
       tr.querySelector('.col-totventa').value = totalPrecioVentaFila.toFixed(2);
@@ -722,10 +1045,10 @@
       const campo = document.getElementById('globalCampo').value;
       const valorInput = document.getElementById('globalValor');
 
-      if (campo === 'col-origen') {
+      if (campo === 'col-origen' || campo === 'col-marca') {
         valorInput.type = 'text';
         valorInput.step = '';
-        valorInput.placeholder = 'Ej: Nacional';
+        valorInput.placeholder = campo === 'col-marca' ? 'Ej: Stanley' : 'Ej: Nacional';
       } else {
         valorInput.type = 'number';
         valorInput.step = '0.01';
@@ -738,10 +1061,10 @@
       const campo = document.getElementById('globalCampo').value;
       const valorInput = document.getElementById('globalValor');
       const valor = valorInput.value;
-      const esTexto = campo === 'col-origen';
+      const esTexto = campo === 'col-origen' || campo === 'col-marca';
 
       if (valor === '' || (!esTexto && isNaN(parseFloat(valor)))) {
-        mostrarToast(esTexto ? "Ingresá un valor de Origen antes de aplicar." : "Ingresá un valor numérico antes de aplicar.", "alerta");
+        mostrarToast(esTexto ? "Ingresá un valor antes de aplicar." : "Ingresá un valor numérico antes de aplicar.", "alerta");
         return;
       }
 
@@ -750,7 +1073,6 @@
       const cambiosPrevios = [];
 
       filas.forEach(tr => {
-        // Solo aplica a filas actualmente visibles (respeta los filtros activos, ej: Origen)
         if (tr.style.display === 'none') return;
 
         const celda = tr.querySelector('.' + campo);
@@ -784,7 +1106,6 @@
       let restauradas = 0;
 
       cambios.forEach(({ tr, valorAnterior }) => {
-        // Verifica que la fila todavía exista en la tabla (no haya sido eliminada)
         if (!document.body.contains(tr)) return;
         const celda = tr.querySelector('.' + campo);
         if (celda) {
@@ -846,7 +1167,6 @@
       let filasVisibles = 0;
 
       filas.forEach(tr => {
-        // Ignorar filas ocultas por filtros
         if (tr.style.display === 'none') return;
         filasVisibles++;
 
@@ -876,7 +1196,6 @@
       const gananciaTotal = sumaTotalPrecioVentaFila - sumaTotalCostoNetoFila;
       const margenPromedio = filasVisibles > 0 ? (sumaMargen / filasVisibles) : 0;
 
-      // Actualizar Footer de la Tabla
       document.getElementById('totalCantidad').innerText = sumaCantidad;
       document.getElementById('totalPrecioLista').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaPrecioLista.toFixed(2)}`;
       document.getElementById('totalCostoNetoUnit').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaCostoNetoUnit.toFixed(2)}`;
@@ -884,38 +1203,24 @@
       document.getElementById('totalPrecioVentaFila').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalPrecioVentaFila.toFixed(2)}`;
       document.getElementById('promedioMargen').innerText = `${margenPromedio.toFixed(1)}% Prom.`;
 
-      // Actualizar KPI Cards
       document.getElementById('kpiUnidades').innerText = sumaCantidad;
       document.getElementById('kpiCosto').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalCostoNetoFila.toFixed(2)}`;
       document.getElementById('kpiVenta').innerText = `${obtenerSimboloMoneda(monedaActual)} ${sumaTotalPrecioVentaFila.toFixed(2)}`;
       document.getElementById('kpiGanancia').innerText = `${obtenerSimboloMoneda(monedaActual)} ${gananciaTotal.toFixed(2)}`;
     }
 
-    // Parser propio de CSV/TXT: respeta comillas y detecta el delimitador (';' o ',')
-    // Se usa en lugar de la librería XLSX para archivos de texto, porque esa librería
-    // interpreta automáticamente "242,08" como el número 24208 (tratando la coma como separador de miles),
-    // arruinando los valores con coma decimal antes de que podamos corregirlos.
-    // Interpreta el valor de la columna "Moneda" al importar: acepta códigos numéricos
-    // (1=Pesos, 2=Dólar BNA, 3=Dólar Divisa, 58=Euro) o siglas/nombres de texto.
     function normalizarMonedaFila(valorCrudo) {
       const v = (valorCrudo || '').toString().trim().toUpperCase();
 
-      // Códigos numéricos
       if (v === '1') return '$';
       if (v === '2') return 'USD';
       if (v === '3') return 'DIVISA';
       if (v === '58') return 'EUR';
 
-      // Euro
       if (['EUR', 'EURO', 'EUROS', '€'].includes(v)) return 'EUR';
-
-      // Dólar Divisa (mayorista)
       if (['DIVISA', 'DOLAR DIVISA', 'DÓLAR DIVISA', 'MAYORISTA', 'DOLAR MAYORISTA', 'DÓLAR MAYORISTA'].includes(v)) return 'DIVISA';
-
-      // Dólar BNA / genérico
       if (['USD', 'U$S', 'US$', 'DOLAR', 'DÓLAR', 'DOLARES', 'DÓLARES', 'BNA', 'DOLAR BNA', 'DÓLAR BNA', 'U$S BNA'].includes(v)) return 'USD';
 
-      // Pesos (default)
       return '$';
     }
 
@@ -973,7 +1278,6 @@
           let jsonData;
 
           if (esTextoPlano) {
-            // Leído como texto: evita que XLSX mal-interprete comas decimales
             jsonData = parseCSVTexto(e.target.result);
           } else {
             const data = new Uint8Array(e.target.result);
@@ -988,12 +1292,10 @@
             return;
           }
 
-          // Clear table before importing
           document.getElementById('tbodyPresupuesto').innerHTML = '';
 
           let cargados = 0;
 
-          // Convierte números en formato local (coma decimal, punto de miles) a float
           const parseNumeroLocal = (val) => {
             if (typeof val === 'number') return val;
             if (val === undefined || val === null) return 0;
@@ -1003,19 +1305,18 @@
             const hasDot = s.includes('.');
             if (hasComma && hasDot) {
               if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
-                s = s.replace(/\./g, '').replace(',', '.'); // 1.234,56 -> 1234.56
+                s = s.replace(/\./g, '').replace(',', '.');
               } else {
-                s = s.replace(/,/g, ''); // 1,234.56 -> 1234.56
+                s = s.replace(/,/g, '');
               }
             } else if (hasComma) {
-              s = s.replace(',', '.'); // 242,08 -> 242.08
+              s = s.replace(',', '.');
             }
             const n = parseFloat(s);
             return isNaN(n) ? 0 : n;
           };
 
           jsonData.forEach(row => {
-            // Support multiple possible header names (case insensitive)
             const getVal = (keys) => {
               for (let k of keys) {
                 const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase() === k.toLowerCase());
@@ -1030,6 +1331,7 @@
             const cantidad = parseNumeroLocal(getVal(["cantidad", "cant", "qty"])) || 1;
             const codigo = getVal(["codigo", "código", "cod", "item"]);
             const detalle = getVal(["detalle", "descripcion", "descripción", "articulo", "artículo"]);
+            const marca = getVal(["marca", "brand"]);
             const precio = parseNumeroLocal(getVal(["precio_lista", "preciolista", "precio", "precio lista"])) || 0;
             const obs = getVal(["observaciones", "obs"]);
             const d1 = parseNumeroLocal(getVal(["desc_1", "desc1", "descuento1"])) || 0;
@@ -1046,13 +1348,12 @@
 
             if (codigo || detalle || precio > 0) {
               agregarFila({
-                nroItem, cantidad, codigo, detalle, obs, precio, monedaFila, d1, d2, d3, d4, d5, margen, origen, codCliente, codCliente2
+                nroItem, cantidad, codigo, detalle, marca, obs, precio, monedaFila, d1, d2, d3, d4, d5, margen, origen, codCliente, codCliente2
               });
               cargados++;
             }
           });
 
-          // Add extra empty rows if needed
           if (cargados < 5) {
             agregarMultiplesFilas(5 - cargados);
           }
@@ -1070,26 +1371,9 @@
       } else {
         reader.readAsArrayBuffer(file);
       }
-      event.target.value = ''; // Reset input
+      event.target.value = '';
     }
 
-    function descargarPlantillaExcel() {
-      const data = [
-        ["NRO_ITEM", "CANTIDAD", "CODIGO", "DETALLE", "PRECIO_LISTA", "ORIGEN", "OBSERVACIONES", "MARGIN", "COD_CLIENTE"],
-        [1, 10, "HER-001", "Taladro Percutor 750W", 150000, "Importado", "Insumo Obra", 35, "CLI-A10"],
-        [2, 50, "HER-042", "Juego de Mechas x10", 28000, "Nacional", "Caja plástica", 40, "CLI-A10"],
-        [3, 20, "ELE-105", "Cable Unipolar 2.5mm x 100m", 85000, "Nacional", "Normalizado IRAM", 25, "CLI-B22"],
-        [4, 100, "BUL-882", "Tornillos Autoperforantes 10x2'' x500", 19500, "Importado", "Bolsa sellada", 50, "CLI-B22"]
-      ];
-
-      const ws = XLSX.utils.aoa_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Reducida");
-      XLSX.writeFile(wb, "plantilla_presupuesto_reducida.xlsx");
-      mostrarToast("Descargando plantilla de ejemplo en Excel...", "info");
-    }
-
-    // Nombre completo, para mostrar en el campo "Moneda:" del PDF
     function obtenerNombreMoneda(codigoMoneda) {
       switch (codigoMoneda) {
         case '$': return 'Pesos Argentinos ($)';
@@ -1115,7 +1399,6 @@
       const fecha = fechaInput ? new Date(fechaInput + 'T00:00:00').toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR');
       const moneda = obtenerSimboloMoneda(monedaActual);
 
-      // Encabezado
       doc.setFontSize(16);
       doc.setFont(undefined, 'bold');
       doc.text('PRESUPUESTO', 105, 15, { align: 'center' });
@@ -1123,11 +1406,10 @@
       doc.setFontSize(10);
       doc.setFont(undefined, 'normal');
       doc.text(`Presupuesto N°: ${numero}`, 14, 26);
-      doc.text(`Fecha de Emisión: ${fecha}`, 14, 32);
+      doc.text(`Fecha Vigencia Presupuesto: ${fecha}`, 14, 32);
       doc.text(`Moneda: ${obtenerNombreMoneda(monedaActual)}`, 14, 38);
       doc.text(`Cliente / Empresa: ${cliente}`, 14, 44);
 
-      // Filas visibles (respeta filtros activos)
       const filas = document.querySelectorAll('#tbodyPresupuesto tr');
       const body = [];
       let totalPresupuesto = 0;
@@ -1138,11 +1420,11 @@
         const nroItem = tr.querySelector('.col-nroitem').value;
         const cantidad = tr.querySelector('.col-cantidad').value;
         const detalle = tr.querySelector('.col-detalle').value;
+        const marca = tr.querySelector('.col-marca').value;
         const obs = tr.querySelector('.col-obs').value;
         const ventaUnit = parseFloat(tr.querySelector('.col-venta').value) || 0;
         const totVenta = parseFloat(tr.querySelector('.col-totventa').value) || 0;
 
-        // Omitir filas totalmente vacías
         if (!detalle && !cantidad && totVenta === 0) return;
 
         totalPresupuesto += totVenta;
@@ -1151,6 +1433,7 @@
           nroItem || '',
           cantidad || '',
           detalle || '',
+          marca || '',
           obs || '',
           `${moneda} ${ventaUnit.toFixed(2)}`,
           `${moneda} ${totVenta.toFixed(2)}`
@@ -1159,17 +1442,18 @@
 
       doc.autoTable({
         startY: 50,
-        head: [["N° Item", "Cantidad", "Detalle Artículo", "Observaciones", "Precio Venta Unit.", "Total Precio Venta"]],
+        head: [["N° Item", "Cantidad", "Detalle Artículo", "Marca", "Observaciones", "Precio Venta Unit.", "Total Precio Venta"]],
         body: body,
         styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
-        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
+        headStyles: { fillColor: [31, 41, 55], textColor: 255, fontStyle: 'bold' },
         columnStyles: {
-          0: { cellWidth: 15, halign: 'center' },
-          1: { cellWidth: 18, halign: 'center' },
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 15, halign: 'center' },
           2: { cellWidth: 'auto' },
-          3: { cellWidth: 35 },
-          4: { cellWidth: 30, halign: 'right' },
-          5: { cellWidth: 30, halign: 'right' }
+          3: { cellWidth: 25 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 28, halign: 'right' },
+          6: { cellWidth: 28, halign: 'right' }
         },
         margin: { left: 14, right: 14 }
       });
@@ -1202,9 +1486,10 @@
         const nroItem = tr.querySelector('.col-nroitem').value;
         const producto = tr.querySelector('.col-codigo').value;
         const caracteristica = tr.querySelector('.col-detalle').value;
+        const marca = tr.querySelector('.col-marca').value;
         const cantidad = tr.querySelector('.col-cantidad').value;
 
-        data.push([nroItem, producto, caracteristica, "", "", "", cantidad, "", "", ""]);
+        data.push([nroItem, producto, caracteristica, marca, "", "", cantidad, "", "", ""]);
       });
 
       const ws = XLSX.utils.aoa_to_sheet(data);
@@ -1218,11 +1503,11 @@
       document.getElementById('tbodyPresupuesto').innerHTML = '';
 
       const datosPrueba = [
-        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", obs: "Oferta de temporada", precio: 150000, d1: 10, d2: 5, d3: 0, d4: 0, d5: 0, margen: 35, origen: "Importado", codCliente: "CLI-A10" },
-        { nroItem: 2, cantidad: 20, codigo: "HER-042", detalle: "Juego de Mechas para Concreto x10", obs: "Caja plástica", precio: 28000, d1: 15, d2: 5, d3: 2, d4: 0, d5: 0, margen: 40, origen: "Nacional", codCliente: "CLI-A10" },
-        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", obs: "Normalizado IRAM", precio: 85000, d1: 20, d2: 10, d3: 5, d4: 2, d5: 0, margen: 25, origen: "Nacional", codCliente: "CLI-B22" },
-        { nroItem: 4, cantidad: 50, codigo: "BUL-882", detalle: "Tornillos Autoperforantes 10x2'' x500", obs: "Bolsa sellada", precio: 19500, d1: 5, d2: 0, d3: 0, d4: 0, d5: 0, margen: 50, origen: "Importado", codCliente: "CLI-B22" },
-        { nroItem: 5, cantidad: 8, codigo: "PIN-301", detalle: "Pintura Látex Interior Mate 20L", obs: "Color Blanco", precio: 110000, d1: 12, d2: 8, d3: 0, d4: 0, d5: 0, margen: 30, origen: "Nacional", codCliente: "CLI-C05" }
+        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", marca: "Stanley", obs: "Oferta de temporada", precio: 150000, d1: 10, d2: 5, d3: 0, d4: 0, d5: 0, margen: 35, origen: "Importado", codCliente: "CLI-A10" },
+        { nroItem: 2, cantidad: 20, codigo: "HER-042", detalle: "Juego de Mechas para Concreto x10", marca: "Bosch", obs: "Caja plástica", precio: 28000, d1: 15, d2: 5, d3: 2, d4: 0, d5: 0, margen: 40, origen: "Nacional", codCliente: "CLI-A10" },
+        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", marca: "Prysmian", obs: "Normalizado IRAM", precio: 85000, d1: 20, d2: 10, d3: 5, d4: 2, d5: 0, margen: 25, origen: "Nacional", codCliente: "CLI-B22" },
+        { nroItem: 4, cantidad: 50, codigo: "BUL-882", detalle: "Tornillos Autoperforantes 10x2'' x500", marca: "Fischer", obs: "Bolsa sellada", precio: 19500, d1: 5, d2: 0, d3: 0, d4: 0, d5: 0, margen: 50, origen: "Importado", codCliente: "CLI-B22" },
+        { nroItem: 5, cantidad: 8, codigo: "PIN-301", detalle: "Pintura Látex Interior Mate 20L", marca: "Alba", obs: "Color Blanco", precio: 110000, d1: 12, d2: 8, d3: 0, d4: 0, d5: 0, margen: 30, origen: "Nacional", codCliente: "CLI-C05" }
       ];
 
       datosPrueba.forEach(item => agregarFila(item));
@@ -1244,9 +1529,8 @@
         return;
       }
 
-      let csv = "NroItem;Cantidad;Codigo;Detalle;Observaciones;PrecioLista;MonedaCosto;Desc1;Desc2;Desc3;Desc4;Desc5;CostoNetoUnit;Margen;PrecioVentaUnit;TotalPrecioVenta;Proveedor;CodigoClienteA;CodigoCliente\n";
+      let csv = "NroItem;Cantidad;Codigo;Detalle;Marca;Observaciones;PrecioLista;MonedaCosto;Desc1;Desc2;Desc3;Desc4;Desc5;CostoNetoUnit;Margen;PrecioVentaUnit;TotalPrecioVenta;Proveedor;CodigoClienteA;CodigoCliente2\n";
 
-      // Formatea un número con 2 decimales fijos y coma decimal (formato local: 1234.56 -> "1234,56")
       const formatearDecimalCSV = (val) => {
         const n = parseFloat(val);
         if (isNaN(n)) return "";
@@ -1258,6 +1542,7 @@
         const cantidad = tr.querySelector('.col-cantidad').value;
         const codigo = tr.querySelector('.col-codigo').value;
         const detalle = tr.querySelector('.col-detalle').value;
+        const marca = tr.querySelector('.col-marca').value;
         const obs = tr.querySelector('.col-obs').value;
         const precio = tr.querySelector('.col-precio').value;
         const monedaFila = tr.querySelector('.col-monedafila').value;
@@ -1275,7 +1560,7 @@
         const codCliente2 = tr.querySelector('.col-codcliente2').value;
 
         if (codigo || detalle || precio) {
-          csv += `"${nroItem}";"${cantidad}";"${codigo}";"${detalle}";"${obs}";"${formatearDecimalCSV(precio)}";"${monedaFila}";"${d1}";"${d2}";"${d3}";"${d4}";"${d5}";"${formatearDecimalCSV(costoUnit)}";"${margen}";"${formatearDecimalCSV(ventaUnit)}";"${formatearDecimalCSV(totVenta)}";"${origen}";"${codCliente}";"${codCliente2}"\n`;
+          csv += `"${nroItem}";"${cantidad}";"${codigo}";"${detalle}";"${marca}";"${obs}";"${formatearDecimalCSV(precio)}";"${monedaFila}";"${d1}";"${d2}";"${d3}";"${d4}";"${d5}";"${formatearDecimalCSV(costoUnit)}";"${margen}";"${formatearDecimalCSV(ventaUnit)}";"${formatearDecimalCSV(totVenta)}";"${origen}";"${codCliente}";"${codCliente2}"\n`;
         }
       });
 
@@ -1299,6 +1584,7 @@
           cantidad: tr.querySelector('.col-cantidad').value,
           codigo: tr.querySelector('.col-codigo').value,
           detalle: tr.querySelector('.col-detalle').value,
+          marca: tr.querySelector('.col-marca').value,
           obs: tr.querySelector('.col-obs').value,
           precio: tr.querySelector('.col-precio').value,
           monedaFila: tr.querySelector('.col-monedafila').value,
@@ -1362,7 +1648,6 @@
             return;
           }
 
-          // Restaurar metadata si está presente
           if (backup.metadata) {
             if (backup.metadata.cliente !== undefined) document.getElementById('metaCliente').value = backup.metadata.cliente;
             if (backup.metadata.numero !== undefined) document.getElementById('metaNumero').value = backup.metadata.numero;
@@ -1377,7 +1662,6 @@
           tipoCambioDivisa = parseFloat(document.getElementById('metaTCDivisa').value) || 0;
           tipoCambioEUR = parseFloat(document.getElementById('metaTCEUR').value) || 0;
 
-          // Restaurar filas
           document.getElementById('tbodyPresupuesto').innerHTML = '';
           backup.items.forEach(item => agregarFila(item));
 
@@ -1394,11 +1678,11 @@
       };
 
       reader.readAsText(file);
-      event.target.value = ''; // Reset input
+      event.target.value = '';
     }
 
     window.onload = function() {
-      // Load 8 default rows
+      cargarProductosGitHub();
       agregarMultiplesFilas(8);
       calcularTotalesGenerales();
     };
