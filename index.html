@@ -15,9 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <!-- SheetJS for Excel Import/Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <!-- jsPDF for PDF export -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
 
   <style>
     /* =====================================================================
@@ -1266,25 +1264,172 @@
       descargarArchivo('Presupuesto_' + numero + '.csv', '\uFEFF' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
       mostrarToast('Archivo CSV exportado (' + exportadas + ' ítem(s)).' + notaFiltros(), 'exito');
     }
+    /* ============================================================
+       GENERADOR DE PDF PROPIO (sin librerías externas)
+       Escribe el archivo PDF directamente con las fuentes estándar
+       Helvetica / Helvetica-Bold (codificación WinAnsi: tildes, ñ, €).
+       ============================================================ */
+    const ANCHO_HELV=[278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 761, 556, 556, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 556, 611, 556, 556, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 556, 500, 667, 278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611, 667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278, 556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500];
+const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 761, 556, 611, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 611, 611, 611, 611, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 611, 500, 667, 278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333, 400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611, 722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278, 722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611, 556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278, 611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556];
+    const PDF_MM = 72 / 25.4;
+    const WINANSI_ESPECIALES = {
+      '€':0x80,'‚':0x82,'ƒ':0x83,'„':0x84,'…':0x85,'†':0x86,'‡':0x87,'ˆ':0x88,'‰':0x89,'Š':0x8A,'‹':0x8B,'Œ':0x8C,'Ž':0x8E,
+      '‘':0x91,'’':0x92,'“':0x93,'”':0x94,'•':0x95,'–':0x96,'—':0x97,'˜':0x98,'™':0x99,'š':0x9A,'›':0x9B,'œ':0x9C,'ž':0x9E,'Ÿ':0x9F
+    };
+
+    // Convierte un texto a bytes WinAnsi (cada carácter del resultado es un byte 0-255).
+    function pdfCodificar(texto) {
+      let salida = '';
+      for (const ch of String(texto == null ? '' : texto)) {
+        const cp = ch.codePointAt(0);
+        if (cp === 9) { salida += ' '; continue; }
+        if (cp < 32 || cp === 127) continue;
+        if (cp <= 255 && !(cp >= 0x80 && cp <= 0x9F)) { salida += String.fromCharCode(cp); continue; }
+        if (WINANSI_ESPECIALES[ch] !== undefined) { salida += String.fromCharCode(WINANSI_ESPECIALES[ch]); continue; }
+        // Carácter fuera de WinAnsi: intenta quitar el acento (ē → e); si no se puede, '?'
+        const base = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
+        salida += (base.length === 1 && base.charCodeAt(0) < 256 && base.charCodeAt(0) >= 32) ? base : '?';
+      }
+      return salida;
+    }
+
+    class PdfLite {
+      constructor(anchoMM, altoMM) {
+        this.w = anchoMM; this.h = altoMM;
+        this.paginas = [];
+        this.nuevaPagina();
+      }
+      nuevaPagina() { this.ops = []; this.paginas.push(this.ops); return this.paginas.length; }
+      irAPagina(n) { this.ops = this.paginas[n - 1]; }
+      _n(v) { return (Math.round(v * 1000) / 1000).toString(); }
+      _x(x) { return this._n(x * PDF_MM); }
+      _y(y) { return this._n((this.h - y) * PDF_MM); }
+      _color(c) { return c.map(v => this._n(v / 255)).join(' '); }
+      rect(x, y, w, h, relleno, borde, grosor = 0.2) {
+        const op = [];
+        if (relleno) op.push(this._color(relleno) + ' rg');
+        if (borde) op.push(this._color(borde) + ' RG', this._n(grosor * PDF_MM) + ' w');
+        op.push(`${this._x(x)} ${this._y(y + h)} ${this._n(w * PDF_MM)} ${this._n(h * PDF_MM)} re ${relleno && borde ? 'B' : relleno ? 'f' : 'S'}`);
+        this.ops.push(op.join('\n'));
+      }
+      rectRedondeado(x, y, w, h, r, relleno) {
+        const k = 0.5523 * r, X = v => this._x(v), Y = v => this._y(v);
+        this.ops.push([
+          this._color(relleno) + ' rg',
+          `${X(x + r)} ${Y(y)} m`,
+          `${X(x + w - r)} ${Y(y)} l`,
+          `${X(x + w - r + k)} ${Y(y)} ${X(x + w)} ${Y(y + r - k)} ${X(x + w)} ${Y(y + r)} c`,
+          `${X(x + w)} ${Y(y + h - r)} l`,
+          `${X(x + w)} ${Y(y + h - r + k)} ${X(x + w - r + k)} ${Y(y + h)} ${X(x + w - r)} ${Y(y + h)} c`,
+          `${X(x + r)} ${Y(y + h)} l`,
+          `${X(x + r - k)} ${Y(y + h)} ${X(x)} ${Y(y + h - r + k)} ${X(x)} ${Y(y + h - r)} c`,
+          `${X(x)} ${Y(y + r)} l`,
+          `${X(x)} ${Y(y + r - k)} ${X(x + r - k)} ${Y(y)} ${X(x + r)} ${Y(y)} c`,
+          'f'
+        ].join('\n'));
+      }
+      linea(x1, y1, x2, y2, color, grosor = 0.2) {
+        this.ops.push(`${this._color(color)} RG ${this._n(grosor * PDF_MM)} w ${this._x(x1)} ${this._y(y1)} m ${this._x(x2)} ${this._y(y2)} l S`);
+      }
+      // Ancho de un texto en mm (tamaño en puntos)
+      ancho(texto, tamano, negrita) {
+        const tabla = negrita ? ANCHO_HELV_BOLD : ANCHO_HELV;
+        const cod = pdfCodificar(texto);
+        let u = 0;
+        for (let i = 0; i < cod.length; i++) { const c = cod.charCodeAt(i); u += (c >= 32 ? tabla[c - 32] : 0) || 0; }
+        return u / 1000 * tamano / PDF_MM;
+      }
+      // (x, y) = punto de la línea base del texto, en mm desde arriba-izquierda
+      texto(txt, x, y, { tamano = 10, negrita = false, color = [0, 0, 0], alinear = 'left' } = {}) {
+        let cod = pdfCodificar(txt);
+        if (!cod) return;
+        const ancho = this.ancho(txt, tamano, negrita);
+        if (alinear === 'right') x -= ancho; else if (alinear === 'center') x -= ancho / 2;
+        cod = cod.replace(/[\\()]/g, m => '\\' + m);
+        this.ops.push(`BT ${this._color(color)} rg /${negrita ? 'F2' : 'F1'} ${this._n(tamano)} Tf ${this._x(x)} ${this._y(y)} Td (${cod}) Tj ET`);
+      }
+      // Parte un texto en líneas que no superen anchoMax (mm). Respeta saltos de línea y corta palabras muy largas.
+      envolver(txt, tamano, negrita, anchoMax) {
+        const lineas = [];
+        String(txt == null ? '' : txt).split(/\r\n|\n|\r/).forEach(parrafo => {
+          const palabras = parrafo.split(/\s+/).filter(Boolean);
+          if (!palabras.length) { lineas.push(''); return; }
+          let actual = '';
+          palabras.forEach(pal => {
+            const prueba = actual ? actual + ' ' + pal : pal;
+            if (this.ancho(prueba, tamano, negrita) <= anchoMax) { actual = prueba; return; }
+            if (actual) { lineas.push(actual); actual = ''; }
+            // palabra sola más ancha que la celda: se corta por caracteres
+            let trozo = '';
+            for (const ch of pal) {
+              if (this.ancho(trozo + ch, tamano, negrita) > anchoMax && trozo) { lineas.push(trozo); trozo = ch; }
+              else trozo += ch;
+            }
+            actual = trozo;
+          });
+          lineas.push(actual);
+        });
+        return lineas;
+      }
+      // Genera los bytes del archivo PDF
+      generar(info) {
+        const objetos = [];                     // cada objeto es un string de bytes
+        const nPag = this.paginas.length;
+        const idPaginas = 2, idF1 = 3, idF2 = 4, idInfo = 5;
+        const idContenido = i => 6 + i * 2, idPagina = i => 7 + i * 2;
+        const hex16 = s => 'FEFF' + Array.from(String(s)).map(c => c.charCodeAt(0).toString(16).padStart(4, '0')).join('').toUpperCase();
+        const ahora = new Date();
+        const p2 = n => String(n).padStart(2, '0');
+        const fechaPDF = `D:${ahora.getFullYear()}${p2(ahora.getMonth() + 1)}${p2(ahora.getDate())}${p2(ahora.getHours())}${p2(ahora.getMinutes())}${p2(ahora.getSeconds())}`;
+
+        objetos[1] = `<< /Type /Catalog /Pages ${idPaginas} 0 R >>`;
+        objetos[idPaginas] = `<< /Type /Pages /Count ${nPag} /Kids [${this.paginas.map((_, i) => idPagina(i) + ' 0 R').join(' ')}] >>`;
+        objetos[idF1] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+        objetos[idF2] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+        objetos[idInfo] = `<< /Title <${hex16(info.titulo || '')}> /Subject <${hex16(info.asunto || '')}> /Creator <${hex16('Generador de Presupuestos')}> /Producer <${hex16('Generador de Presupuestos')}> /CreationDate (${fechaPDF}) >>`;
+        this.paginas.forEach((ops, i) => {
+          const flujo = ops.join('\n');
+          objetos[idContenido(i)] = `<< /Length ${flujo.length} >>\nstream\n${flujo}\nendstream`;
+          objetos[idPagina(i)] = `<< /Type /Page /Parent ${idPaginas} 0 R /MediaBox [0 0 ${this._n(this.w * PDF_MM)} ${this._n(this.h * PDF_MM)}] /Resources << /Font << /F1 ${idF1} 0 R /F2 ${idF2} 0 R >> >> /Contents ${idContenido(i)} 0 R >>`;
+        });
+
+        let archivo = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+        const posiciones = [];
+        const total = objetos.length;
+        for (let id = 1; id < total; id++) {
+          posiciones[id] = archivo.length;
+          archivo += `${id} 0 obj\n${objetos[id]}\nendobj\n`;
+        }
+        const xref = archivo.length;
+        archivo += `xref\n0 ${total}\n0000000000 65535 f \n`;
+        for (let id = 1; id < total; id++) archivo += String(posiciones[id]).padStart(10, '0') + ' 00000 n \n';
+        archivo += `trailer\n<< /Size ${total} /Root 1 0 R /Info ${idInfo} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+
+        const bytes = new Uint8Array(archivo.length);
+        for (let i = 0; i < archivo.length; i++) bytes[i] = archivo.charCodeAt(i) & 0xFF;
+        return bytes;
+      }
+    }
+
+    // Formato numérico fijo (no depende de la configuración regional del navegador): 1.234.567,89
+    function formatoNumeroAR(valor) {
+      const n = Number(valor) || 0;
+      const [ent, dec] = Math.abs(n).toFixed(2).split('.');
+      return (n < 0 ? '-' : '') + ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
+    }
+
     function exportarPDF() {
       cerrarDropdowns();
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        mostrarToast('No se pudo cargar la biblioteca PDF. Revisá tu conexión e intentá nuevamente.', 'alerta');
-        return;
-      }
       const trsPDF = Array.from(document.querySelectorAll('#tbodyPresupuesto tr')).filter(tr => !filaVacia(tr));
       if (!trsPDF.length) {
         mostrarToast('No hay ítems cargados para exportar.', 'alerta');
         return;
       }
 
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 14;
-      const currencySymbol = obtenerSimboloMoneda(monedaActual);
-      const currencyName = {
+      const pdf = new PdfLite(297, 210);              // A4 apaisado
+      const W = pdf.w, H = pdf.h, margen = 14;
+      const simbolo = obtenerSimboloMoneda(monedaActual);
+      const nombreMoneda = {
         '$': 'pesos argentinos (ARS)',
         USD: 'dólares estadounidenses (BNA)',
         DIVISA: 'dólares divisa',
@@ -1293,133 +1438,115 @@
       const cliente = document.getElementById('metaCliente').value.trim() || 'Sin especificar';
       const numero = document.getElementById('metaNumero').value.trim() || 'Sin número';
       const fechaRaw = document.getElementById('metaFecha').value;
-      const vigencia = fechaRaw
-        ? new Date(fechaRaw + 'T00:00:00').toLocaleDateString('es-AR')
-        : 'Sin especificar';
-      const formatoImporte = valor => currencySymbol + ' ' +
-        new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(valor) || 0);
+      const vigencia = fechaRaw ? new Date(fechaRaw + 'T00:00:00').toLocaleDateString('es-AR') : 'Sin especificar';
+      const importe = v => simbolo + ' ' + formatoNumeroAR(v);
 
-      // Encabezado del presupuesto.
-      doc.setFillColor(20, 38, 63);
-      doc.rect(0, 0, pageWidth, 31, 'F');
-      doc.setFillColor(37, 99, 235);
-      doc.rect(0, 31, pageWidth, 2, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text('PRESUPUESTO COMERCIAL', margin, 10);
-      doc.setFontSize(21);
-      doc.text('Propuesta económica', margin, 21);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('N° ' + numero, pageWidth - margin, 13, { align: 'right' });
+      const C = {
+        marino: [20, 38, 63], azul: [37, 99, 235], blanco: [255, 255, 255],
+        gris: [100, 116, 139], tinta: [30, 41, 59], texto: [51, 65, 85], suave: [71, 85, 105], tenue: [148, 163, 184],
+        fondoCab: [239, 244, 250], fondoAlt: [248, 250, 252], bordeCab: [203, 213, 225], borde: [226, 232, 240]
+      };
 
-      // Ficha de cliente y vigencia.
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'bold');
-      doc.text('CLIENTE', margin, 43);
-      doc.text('NÚMERO DE PRESUPUESTO', pageWidth / 2, 43);
-      doc.text('VÁLIDO HASTA', pageWidth - margin, 43, { align: 'right' });
-      doc.setTextColor(30, 41, 59);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(11);
-      doc.text(doc.splitTextToSize(cliente, 75), margin, 50);
-      doc.text(numero, pageWidth / 2, 50);
-      doc.text(vigencia, pageWidth - margin, 50, { align: 'right' });
-      doc.setDrawColor(226, 232, 240);
-      doc.line(margin, 57, pageWidth - margin, 57);
+      // ---- Portada de la primera página: encabezado + ficha ----
+      pdf.rect(0, 0, W, 31, C.marino);
+      pdf.rect(0, 31, W, 2, C.azul);
+      pdf.texto('PRESUPUESTO COMERCIAL', margen, 10, { tamano: 9, negrita: true, color: C.blanco });
+      pdf.texto('Propuesta económica', margen, 21, { tamano: 21, negrita: true, color: C.blanco });
+      pdf.texto('N° ' + numero, W - margen, 13, { tamano: 10, color: C.blanco, alinear: 'right' });
 
+      pdf.texto('CLIENTE', margen, 43, { tamano: 8, negrita: true, color: C.gris });
+      pdf.texto('NÚMERO DE PRESUPUESTO', W / 2, 43, { tamano: 8, negrita: true, color: C.gris });
+      pdf.texto('VÁLIDO HASTA', W - margen, 43, { tamano: 8, negrita: true, color: C.gris, alinear: 'right' });
+      pdf.envolver(cliente, 11, false, 100).slice(0, 2).forEach((l, i) => pdf.texto(l, margen, 50 + i * 5, { tamano: 11, color: C.tinta }));
+      pdf.texto(numero, W / 2, 50, { tamano: 11, color: C.tinta });
+      pdf.texto(vigencia, W - margen, 50, { tamano: 11, color: C.tinta, alinear: 'right' });
+      pdf.linea(margen, 59, W - margen, 59, C.borde, 0.2);
+
+      // ---- Tabla ----
+      const columnas = [
+        { t: 'Ítem', w: 12, a: 'center' }, { t: 'Cant.', w: 14, a: 'right' }, { t: 'Código', w: 27, a: 'left' },
+        { t: 'Descripción', w: 80, a: 'left' }, { t: 'Marca', w: 30, a: 'left' },
+        { t: 'Precio unitario', w: 53, a: 'right' }, { t: 'Total', w: 53, a: 'right', b: true }
+      ];
+      const TAM = 8, PAD = 2.5, LH = TAM / PDF_MM * 1.15, MAX_LINEAS = 14;
       const filas = trsPDF.map(tr => {
-        const valor = selector => {
-          const campo = tr.querySelector(selector);
-          return campo ? campo.value : '';
-        };
-        return [
-          valor('.col-nroitem'),
-          valor('.col-cantidad'),
-          valor('.col-codigo'),
-          valor('.col-detalle'),
-          valor('.col-marca'),
-          formatoImporte(valor('.col-venta')),
-          formatoImporte(valor('.col-totventa'))
-        ];
+        const v = s => { const c = tr.querySelector(s); return c ? c.value : ''; };
+        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-marca'),
+                importe(v('.col-venta')), importe(v('.col-totventa'))];
       });
-      const total = trsPDF.reduce((suma, tr) => suma + (parseFloat(tr.dataset.totalVenta) || 0), 0);
+      const total = trsPDF.reduce((s, tr) => s + (parseFloat(tr.dataset.totalVenta) || 0), 0);
 
-      doc.autoTable({
-        startY: 63,
-        margin: { left: margin, right: margin, top: 16, bottom: 17 },
-        head: [['Ítem', 'Cant.', 'Código', 'Descripción', 'Marca', 'Precio unitario', 'Total']],
-        body: filas,
-        styles: {
-          font: 'helvetica',
-          fontSize: 8,
-          cellPadding: 2.5,
-          textColor: [51, 65, 85],
-          lineColor: [226, 232, 240],
-          lineWidth: 0.15,
-          overflow: 'linebreak',
-          valign: 'middle'
-        },
-        headStyles: {
-          fillColor: [239, 244, 250],
-          textColor: [30, 41, 59],
-          fontStyle: 'bold',
-          lineColor: [203, 213, 225],
-          lineWidth: 0.2
-        },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        columnStyles: {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 14, halign: 'right' },
-          2: { cellWidth: 27 },
-          3: { cellWidth: 78 },
-          4: { cellWidth: 28 },
-          5: { cellWidth: 52, halign: 'right' },
-          6: { cellWidth: 52, halign: 'right', fontStyle: 'bold' }
+      const limiteInferior = H - 17;
+      const alturaCab = LH + PAD * 2;
+      const cabeceraContinuacion = () => {
+        pdf.rect(0, 0, W, 11, C.marino);
+        pdf.rect(0, 11, W, 1, C.azul);
+        pdf.texto('Presupuesto N° ' + numero, margen, 7.2, { tamano: 9, negrita: true, color: C.blanco });
+        pdf.texto(pdf.envolver(cliente, 9, false, 120)[0] || '', W - margen, 7.2, { tamano: 9, color: C.blanco, alinear: 'right' });
+      };
+      const dibujarCabeceraTabla = y => {
+        let x = margen;
+        columnas.forEach(c => {
+          pdf.rect(x, y, c.w, alturaCab, C.fondoCab, C.bordeCab, 0.2);
+          const tx = c.a === 'right' ? x + c.w - PAD : c.a === 'center' ? x + c.w / 2 : x + PAD;
+          pdf.texto(c.t, tx, y + alturaCab / 2 + TAM / PDF_MM * 0.35, { tamano: TAM, negrita: true, color: C.tinta, alinear: c.a });
+          x += c.w;
+        });
+        return y + alturaCab;
+      };
+
+      let y = dibujarCabeceraTabla(65);
+      filas.forEach((fila, idx) => {
+        const lineasCelda = fila.map((txt, i) => {
+          let ls = pdf.envolver(txt, TAM, !!columnas[i].b, columnas[i].w - PAD * 2);
+          if (ls.length > MAX_LINEAS) {
+            ls = ls.slice(0, MAX_LINEAS);
+            ls[MAX_LINEAS - 1] = ls[MAX_LINEAS - 1].replace(/.{0,3}$/, '') + '...';
+          }
+          return ls;
+        });
+        const alto = Math.max(...lineasCelda.map(l => l.length), 1) * LH + PAD * 2;
+        if (y + alto > limiteInferior) {           // salto de página con cabecera repetida
+          pdf.nuevaPagina();
+          cabeceraContinuacion();
+          y = dibujarCabeceraTabla(17);
         }
+        let x = margen;
+        columnas.forEach((c, i) => {
+          pdf.rect(x, y, c.w, alto, idx % 2 === 1 ? C.fondoAlt : C.blanco, C.borde, 0.15);
+          const ls = lineasCelda[i];
+          const y0 = y + (alto - ls.length * LH) / 2;
+          const tx = c.a === 'right' ? x + c.w - PAD : c.a === 'center' ? x + c.w / 2 : x + PAD;
+          ls.forEach((l, k) => pdf.texto(l, tx, y0 + k * LH + LH / 2 + TAM / PDF_MM * 0.35,
+            { tamano: TAM, negrita: !!c.b, color: C.texto, alinear: c.a }));
+          x += c.w;
+        });
+        y += alto;
       });
 
-      let y = doc.lastAutoTable.finalY + 8;
-      if (y + 24 > pageHeight - 16) {
-        doc.addPage();
-        y = 22;
-      }
-      doc.setFillColor(239, 244, 250);
-      doc.roundedRect(margin, y, pageWidth - margin * 2, 15, 2, 2, 'F');
-      doc.setTextColor(71, 85, 105);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text('TOTAL DEL PRESUPUESTO', margin + 5, y + 9.5);
-      doc.setTextColor(20, 38, 63);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text(formatoImporte(total), pageWidth - margin - 5, y + 10, { align: 'right' });
-
-      doc.setTextColor(71, 85, 105);
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8.5);
-      doc.text('Presupuesto expresado en ' + currencyName + '.', margin, y + 22);
+      // ---- Total y leyendas ----
+      y += 8;
       const leyendaIVA = document.getElementById('metaIVA').value;
-      if (leyendaIVA === 'excluye') doc.text('Los precios no incluyen IVA.', margin, y + 27);
-      else if (leyendaIVA === 'incluye') doc.text('Los precios incluyen IVA.', margin, y + 27);
+      const bloque = leyendaIVA === 'ninguna' ? 26 : 31;
+      if (y + bloque > H - 14) { pdf.nuevaPagina(); cabeceraContinuacion(); y = 22; }
+      pdf.rectRedondeado(margen, y, W - margen * 2, 15, 2, C.fondoCab);
+      pdf.texto('TOTAL DEL PRESUPUESTO', margen + 5, y + 9.5, { tamano: 9, color: C.suave });
+      pdf.texto(importe(total), W - margen - 5, y + 10, { tamano: 13, negrita: true, color: C.marino, alinear: 'right' });
+      pdf.texto('Presupuesto expresado en ' + nombreMoneda + '.', margen, y + 22, { tamano: 8.5, color: C.suave });
+      if (leyendaIVA === 'excluye') pdf.texto('Los precios no incluyen IVA.', margen, y + 27, { tamano: 8.5, color: C.suave });
+      else if (leyendaIVA === 'incluye') pdf.texto('Los precios incluyen IVA.', margen, y + 27, { tamano: 8.5, color: C.suave });
 
-      // Pie y numeración en todas las páginas.
-      const cantidadPaginas = doc.internal.getNumberOfPages();
-      for (let pagina = 1; pagina <= cantidadPaginas; pagina++) {
-        doc.setPage(pagina);
-        doc.setDrawColor(226, 232, 240);
-        doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
-        doc.setTextColor(148, 163, 184);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.text('Presupuesto ' + numero, margin, pageHeight - 5);
-        doc.text('Página ' + pagina + ' de ' + cantidadPaginas, pageWidth - margin, pageHeight - 5, { align: 'right' });
+      // ---- Pie con numeración en todas las páginas ----
+      const nPaginas = pdf.paginas.length;
+      for (let p = 1; p <= nPaginas; p++) {
+        pdf.irAPagina(p);
+        pdf.linea(margen, H - 10, W - margen, H - 10, C.borde, 0.2);
+        pdf.texto('Presupuesto ' + numero, margen, H - 5, { tamano: 7, color: C.tenue });
+        pdf.texto('Página ' + p + ' de ' + nPaginas, W - margen, H - 5, { tamano: 7, color: C.tenue, alinear: 'right' });
       }
 
-      const nombreArchivo = numero.replace(/[^a-z0-9_-]/gi, '_');
-      doc.save('Presupuesto_' + nombreArchivo + '.pdf');
+      const bytes = pdf.generar({ titulo: 'Presupuesto ' + numero, asunto: 'Presupuesto para ' + cliente });
+      descargarArchivo('Presupuesto_' + numero.replace(/[^a-z0-9_-]/gi, '_') + '.pdf', bytes, 'application/pdf');
       mostrarToast('Archivo PDF exportado.' + notaFiltros(), 'exito');
     }
     function parsearCSV(texto) {
@@ -1666,7 +1793,6 @@
       const faltan = [];
       if (!window.tailwind) faltan.push('estilos (Tailwind)');
       if (!window.XLSX) faltan.push('importación de Excel');
-      if (!window.jspdf) faltan.push('exportación a PDF');
       if (!faltan.length) return;
       const aviso = document.getElementById('avisoLibs');
       aviso.textContent = 'Sin conexión a internet o bloqueo de red: no se pudieron cargar componentes externos (' + faltan.join(', ') + '). Algunas funciones no estarán disponibles hasta recargar con conexión.';
