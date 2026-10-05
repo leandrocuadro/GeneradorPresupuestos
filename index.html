@@ -1222,17 +1222,152 @@
       mostrarToast('Archivo CSV exportado.', 'exito');
     }
     function exportarPDF() {
-      if (!window.jspdf || !window.jspdf.jsPDF) { mostrarToast('No se pudo cargar la biblioteca PDF. Revisá tu conexión.', 'alerta'); return; }
-      const doc = new window.jspdf.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
-      const val = id => document.getElementById(id).value || '—';
-      doc.setFontSize(16); doc.text('Presupuesto ' + val('metaNumero'), 14, 15);
-      doc.setFontSize(10); doc.text('Cliente: ' + val('metaCliente') + '    Vigencia: ' + val('metaFecha'), 14, 22);
-      const body = Array.from(document.querySelectorAll('#tbodyPresupuesto tr'), tr => {
-        const v = cls => { const el=tr.querySelector('.'+cls); return el ? el.value : ''; };
-        return [v('col-nroitem'),v('col-cantidad'),v('col-codigo'),v('col-detalle'),v('col-marca'),v('col-precio'),v('col-monedafila'),v('col-costo'),v('col-margen'),v('col-venta'),v('col-totventa')];
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        mostrarToast('No se pudo cargar la biblioteca PDF. Revisá tu conexión e intentá nuevamente.', 'alerta');
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const currencySymbol = obtenerSimboloMoneda(monedaActual);
+      const currencyName = {
+        '$': 'pesos argentinos (ARS)',
+        USD: 'dólares estadounidenses (BNA)',
+        DIVISA: 'dólares divisa',
+        EUR: 'euros (EUR)'
+      }[monedaActual] || monedaActual;
+      const cliente = document.getElementById('metaCliente').value.trim() || 'Sin especificar';
+      const numero = document.getElementById('metaNumero').value.trim() || 'Sin número';
+      const fechaRaw = document.getElementById('metaFecha').value;
+      const vigencia = fechaRaw
+        ? new Date(fechaRaw + 'T00:00:00').toLocaleDateString('es-AR')
+        : 'Sin especificar';
+      const formatoImporte = valor => currencySymbol + ' ' +
+        new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(valor) || 0);
+
+      // Encabezado del presupuesto.
+      doc.setFillColor(20, 38, 63);
+      doc.rect(0, 0, pageWidth, 31, 'F');
+      doc.setFillColor(37, 99, 235);
+      doc.rect(0, 31, pageWidth, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('PRESUPUESTO COMERCIAL', margin, 10);
+      doc.setFontSize(21);
+      doc.text('Propuesta económica', margin, 21);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('N° ' + numero, pageWidth - margin, 13, { align: 'right' });
+
+      // Ficha de cliente y vigencia.
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CLIENTE', margin, 43);
+      doc.text('NÚMERO DE PRESUPUESTO', pageWidth / 2, 43);
+      doc.text('VÁLIDO HASTA', pageWidth - margin, 43, { align: 'right' });
+      doc.setTextColor(30, 41, 59);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.text(doc.splitTextToSize(cliente, 75), margin, 50);
+      doc.text(numero, pageWidth / 2, 50);
+      doc.text(vigencia, pageWidth - margin, 50, { align: 'right' });
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, 57, pageWidth - margin, 57);
+
+      const filas = Array.from(document.querySelectorAll('#tbodyPresupuesto tr'), tr => {
+        const valor = selector => {
+          const campo = tr.querySelector(selector);
+          return campo ? campo.value : '';
+        };
+        return [
+          valor('.col-nroitem'),
+          valor('.col-cantidad'),
+          valor('.col-codigo'),
+          valor('.col-detalle'),
+          valor('.col-marca'),
+          formatoImporte(valor('.col-venta')),
+          formatoImporte(valor('.col-totventa'))
+        ];
       });
-      doc.autoTable({startY:28, head:[['Ítem','Cant.','Código','Detalle','Marca','Precio lista','Moneda','Costo neto','Margen %','Precio venta','Total venta']], body, styles:{fontSize:7,cellPadding:1.5}, columnStyles:{3:{cellWidth:48}}});
-      doc.save('Presupuesto_' + val('metaNumero').replace(/[^a-z0-9_-]/gi,'_') + '.pdf');
+      const total = Array.from(document.querySelectorAll('#tbodyPresupuesto tr'))
+        .reduce((suma, tr) => suma + (parseFloat(tr.querySelector('.col-totventa')?.value) || 0), 0);
+
+      doc.autoTable({
+        startY: 63,
+        margin: { left: margin, right: margin, top: 16, bottom: 17 },
+        head: [['Ítem', 'Cant.', 'Código', 'Descripción', 'Marca', 'Precio unitario', 'Total']],
+        body: filas,
+        styles: {
+          font: 'helvetica',
+          fontSize: 8,
+          cellPadding: 2.5,
+          textColor: [51, 65, 85],
+          lineColor: [226, 232, 240],
+          lineWidth: 0.15,
+          overflow: 'linebreak',
+          valign: 'middle'
+        },
+        headStyles: {
+          fillColor: [239, 244, 250],
+          textColor: [30, 41, 59],
+          fontStyle: 'bold',
+          lineColor: [203, 213, 225],
+          lineWidth: 0.2
+        },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 14, halign: 'right' },
+          2: { cellWidth: 27 },
+          3: { cellWidth: 78 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 52, halign: 'right' },
+          6: { cellWidth: 52, halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+      let y = doc.lastAutoTable.finalY + 8;
+      if (y + 24 > pageHeight - 16) {
+        doc.addPage();
+        y = 22;
+      }
+      doc.setFillColor(239, 244, 250);
+      doc.roundedRect(margin, y, pageWidth - margin * 2, 15, 2, 2, 'F');
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('TOTAL DEL PRESUPUESTO', margin + 5, y + 9.5);
+      doc.setTextColor(20, 38, 63);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text(formatoImporte(total), pageWidth - margin - 5, y + 10, { align: 'right' });
+
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text('Presupuesto expresado en ' + currencyName + '.', margin, y + 22);
+      doc.text('Los precios no incluyen IVA.', margin, y + 27);
+
+      // Pie y numeración en todas las páginas.
+      const cantidadPaginas = doc.internal.getNumberOfPages();
+      for (let pagina = 1; pagina <= cantidadPaginas; pagina++) {
+        doc.setPage(pagina);
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, pageHeight - 10, pageWidth - margin, pageHeight - 10);
+        doc.setTextColor(148, 163, 184);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.text('Presupuesto ' + numero, margin, pageHeight - 5);
+        doc.text('Página ' + pagina + ' de ' + cantidadPaginas, pageWidth - margin, pageHeight - 5, { align: 'right' });
+      }
+
+      const nombreArchivo = numero.replace(/[^a-z0-9_-]/gi, '_');
+      doc.save('Presupuesto_' + nombreArchivo + '.pdf');
       mostrarToast('Archivo PDF exportado.', 'exito');
     }
     async function importarExcel(event) {
