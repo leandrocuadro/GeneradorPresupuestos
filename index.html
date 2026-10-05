@@ -1196,19 +1196,29 @@
       return String(v == null ? '' : v).normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     }
     function exportarCSV() {
-      const rows = [camposExcel.map(c => csvCell(c[1])).join(';')];
+      const columnas = [
+        ['Ítem', '.col-nroitem'], ['Cantidad', '.col-cantidad'], ['Código', '.col-codigo'],
+        ['Detalle Artículo', '.col-detalle'], ['Marca', '.col-marca'], ['Observaciones', '.col-obs'],
+        ['Precio Lista', '.col-precio'], ['Moneda Costo', '.col-monedafila'],
+        ['Descuento 1 %', '.col-d1'], ['Descuento 2 %', '.col-d2'], ['Descuento 3 %', '.col-d3'],
+        ['Descuento 4 %', '.col-d4'], ['Descuento 5 %', '.col-d5'],
+        ['Costo Neto Unit.', '.col-costo'], ['Margen %', '.col-margen'],
+        ['Precio Venta Unit.', '.col-venta'], ['Total Precio Venta', '.col-totventa'],
+        ['Proveedor', '.col-origen'], ['Código Cliente A', '.col-codcliente'],
+        ['Código Cliente B', '.col-codcliente2'], ['Memo', null]
+      ];
+      const lineas = [columnas.map(col => csvCell(col[0])).join(';')];
       document.querySelectorAll('#tbodyPresupuesto tr').forEach(tr => {
-        const vals = camposExcel.map(c => {
-          const cls = ({nroItem:'col-nroitem', monedaFila:'col-monedafila', codCliente:'col-codcliente', codCliente2:'col-codcliente2'})[c[0]] || ('col-' + c[0]);
-          const el = tr.querySelector('.' + cls);
-          return csvCell(el ? el.value : '');
+        const valores = columnas.map((col, indice) => {
+          const valor = indice === columnas.length - 1
+            ? (tr.dataset.memo || '')
+            : (tr.querySelector(col[1])?.value || '');
+          return csvCell(valor);
         });
-        vals.push(csvCell(tr.dataset.memo || ''));
-        rows.push(vals.join(';'));
+        lineas.push(valores.join(';'));
       });
-      rows[0] = rows[0].replace(/"Código Cliente B"$/, '"Código Cliente B";"Memo"');
-      const name = (document.getElementById('metaNumero').value || 'Presupuesto').replace(/[^a-z0-9_-]/gi,'_');
-      descargarArchivo('Presupuesto_' + name + '.csv', '\uFEFF' + rows.join('\r\n'), 'text/csv;charset=utf-8');
+      const numero = (document.getElementById('metaNumero').value || 'Presupuesto').replace(/[^a-z0-9_-]/gi, '_');
+      descargarArchivo('Presupuesto_' + numero + '.csv', '\uFEFF' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
       mostrarToast('Archivo CSV exportado.', 'exito');
     }
     function exportarPDF() {
