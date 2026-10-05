@@ -412,7 +412,11 @@
         <span>DATOS GENERALES DEL PRESUPUESTO</span>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div>
+          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Nro. Cliente</label>
+          <input type="text" id="metaNroCliente" inputmode="numeric" autocomplete="off" placeholder="Ej: 10234" oninput="this.value = this.value.replace(/\D/g, '')" class="win-input-group font-mono">
+        </div>
         <div>
           <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
           <input type="text" id="metaCliente" placeholder="Ej: Distribuidora Lopez S.A." class="win-input-group">
@@ -525,22 +529,23 @@
               <th class="w-20 text-center">1. Cantidad</th>
               <th class="w-28">2. Código</th>
               <th class="w-64">3. Detalle Artículo</th>
-              <th class="w-32">4. Marca</th>
-              <th class="w-40">5. Observaciones</th>
-              <th class="w-32 text-right">6. Precio Lista Prov.</th>
+              <th class="w-56">4. Solicitud Cliente</th>
+              <th class="w-32">5. Marca</th>
+              <th class="w-40">6. Observaciones</th>
+              <th class="w-32 text-right">7. Precio Lista Prov.</th>
               <th class="w-20 text-center">Moneda Costo</th>
-              <th class="w-20 text-center">7. Desc 1 %</th>
-              <th class="w-20 text-center">8. Desc 2 %</th>
-              <th class="w-20 text-center">9. Desc 3 %</th>
-              <th class="w-20 text-center">10. Desc 4 %</th>
-              <th class="w-20 text-center">11. Desc 5 %</th>
-              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">12. Costo Neto Unit.</th>
-              <th class="w-28 text-center" title="Recargo sobre el costo neto: Precio venta = Costo neto × (1 + Margen %)">13. Margen % s/costo</th>
-              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">14. Precio Venta Unit.</th>
-              <th class="w-36 text-right !bg-[#e8f0fe] text-blue-900">15. Total Precio Venta</th>
-              <th class="w-28">16. Proveedor</th>
-              <th class="w-28">17. Código Cliente A</th>
-              <th class="w-28">18. Código Cliente B</th>
+              <th class="w-20 text-center">8. Desc 1 %</th>
+              <th class="w-20 text-center">9. Desc 2 %</th>
+              <th class="w-20 text-center">10. Desc 3 %</th>
+              <th class="w-20 text-center">11. Desc 4 %</th>
+              <th class="w-20 text-center">12. Desc 5 %</th>
+              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">13. Costo Neto Unit.</th>
+              <th class="w-28 text-center" title="Recargo sobre el costo neto: Precio venta = Costo neto × (1 + Margen %)">14. Margen % s/costo</th>
+              <th class="w-32 text-right !bg-[#e6f4ea] text-emerald-900">15. Precio Venta Unit.</th>
+              <th class="w-36 text-right !bg-[#e8f0fe] text-blue-900">16. Total Precio Venta</th>
+              <th class="w-28">17. Proveedor</th>
+              <th class="w-28">18. Código Cliente A</th>
+              <th class="w-28">19. Código Cliente B</th>
               <th class="w-10 text-center no-print">Memo</th>
               <th class="w-10 text-center no-print">Acción</th>
             </tr>
@@ -552,6 +557,7 @@
               <td class="p-1"><input type="text" data-col="col-cantidad" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
               <td class="p-1"><input type="text" data-col="col-codigo" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-detalle" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-solicitud" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-marca" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-obs" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-precio" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
@@ -581,14 +587,14 @@
               <td class="p-2 text-center no-print">∑</td>
               <td class="p-2"></td>
               <td id="totalCantidad" class="p-2 text-center text-[#0078d4] font-mono">0</td>
-              <td colspan="4" class="p-2 text-right uppercase tracking-wider text-[11px] text-gray-600">Totales (precio × cantidad):</td>
+              <td colspan="5" class="p-2 text-right uppercase tracking-wider text-[11px] text-gray-600">Totales (precio × cantidad):</td>
               <td id="totalPrecioLista" class="p-2 text-right font-mono">$ 0.00</td>
               <td colspan="6" class="p-2 text-center text-gray-400 font-normal text-[10px]">(Aplica descuento en cascada)</td>
               <td id="totalCostoNetoUnit" class="p-2 text-right text-emerald-800 font-mono text-xs bg-[#e6f4ea]">$ 0.00</td>
               <td id="promedioMargen" class="p-2 text-center text-blue-800 font-mono bg-blue-50">0.0%</td>
               <td id="totalPrecioVentaUnit" class="p-2 text-right text-blue-900 font-mono text-xs bg-indigo-50">$ 0.00</td>
               <td id="totalPrecioVentaFila" class="p-2 text-right text-[#0078d4] font-mono text-sm bg-[#e8f0fe] font-bold">$ 0.00</td>
-              <td colspan="4" class="p-2"></td>
+              <td colspan="5" class="p-2"></td>
             </tr>
           </tfoot>
         </table>
@@ -910,6 +916,7 @@
         <td class="p-0.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${escaparHTML(datos && datos.cantidad !== undefined ? datos.cantidad : 1)}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-codigo font-mono" placeholder="Ej: ART-101" value="${escaparHTML(datos ? datos.codigo : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${escaparHTML(datos ? datos.detalle : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-solicitud" placeholder="Pedido del cliente..." value="${escaparHTML(datos ? datos.solicitud : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-marca" placeholder="Marca..." value="${escaparHTML(datos ? datos.marca : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${escaparHTML(datos ? datos.obs : '')}"></td>
         <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${escaparHTML(datos ? datos.precio : '')}"></td>
@@ -1191,12 +1198,22 @@
       document.getElementById('kpiMargenVenta').innerText = `Margen s/venta: ${margenSobreVenta.toFixed(1)}%`;
     }
 
+    // Reconoce la moneda por denominación, símbolo o código numérico:
+    //   $ / ARS / PESOS / 1  ·  USD / U$S / BNA / 2  ·  DIVISA / MAYORISTA / 3  ·  EUR / € / EURO / 58
+    // Devuelve '$' | 'USD' | 'DIVISA' | 'EUR', o null si no se reconoce.
+    function reconocerMoneda(valorCrudo) {
+      let v = (valorCrudo == null ? '' : String(valorCrudo)).trim().toUpperCase();
+      if (!v) return null;
+      if (/^\d+([.,]0+)?$/.test(v)) v = String(parseInt(v, 10));   // "2", "2.0", "2,0", 2 (celda numérica)
+      const t = v.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ');
+      if (['1', '$', 'ARS', 'AR$', 'PESO', 'PESOS', 'PESO ARGENTINO', 'PESOS ARGENTINOS'].includes(t)) return '$';
+      if (['2', 'USD', 'U$S', 'US$', 'U$D', 'BNA', 'DOLAR', 'DOLAR BNA', 'USD BNA', 'U$S BNA'].includes(t)) return 'USD';
+      if (['3', 'DIVISA', 'MAYORISTA', 'DOLAR DIVISA', 'U$S DIVISA', 'USD DIVISA'].includes(t)) return 'DIVISA';
+      if (['58', 'EUR', 'EURO', 'EUROS', '€'].includes(t)) return 'EUR';
+      return null;
+    }
     function normalizarMonedaFila(valorCrudo) {
-      const v = (valorCrudo || '').toString().trim().toUpperCase();
-      if (['EUR', 'EURO', '€'].includes(v)) return 'EUR';
-      if (['DIVISA', 'MAYORISTA'].includes(v)) return 'DIVISA';
-      if (['USD', 'U$S', 'BNA'].includes(v)) return 'USD';
-      return '$';
+      return reconocerMoneda(valorCrudo) || '$';
     }
 
 
@@ -1218,6 +1235,7 @@
     const camposExcel = [
       ['nroItem','N° Item',['item','n item','numero item','nro item']], ['cantidad','Cantidad',['cant']],
       ['codigo','Código',['cod','sku']], ['detalle','Detalle Artículo',['descripcion','producto']],
+      ['solicitud','Solicitud Cliente',['solicitud','solicitud del cliente','pedido cliente','pedido del cliente']],
       ['marca','Marca',[]], ['obs','Observaciones',['notas']], ['precio','Precio Lista',['precio unitario']],
       ['monedaFila','Moneda Costo',['moneda']], ['d1','Descuento 1 %',['d1','desc 1']],
       ['d2','Descuento 2 %',['d2','desc 2']], ['d3','Descuento 3 %',['d3','desc 3']],
@@ -1233,7 +1251,7 @@
       cerrarDropdowns();
       const columnas = [
         ['Ítem', '.col-nroitem'], ['Cantidad', '.col-cantidad'], ['Código', '.col-codigo'],
-        ['Detalle Artículo', '.col-detalle'], ['Marca', '.col-marca'], ['Observaciones', '.col-obs'],
+        ['Detalle Artículo', '.col-detalle'], ['Solicitud Cliente', '.col-solicitud'], ['Marca', '.col-marca'], ['Observaciones', '.col-obs'],
         ['Precio Lista', '.col-precio'], ['Moneda Costo', '.col-monedafila'],
         ['Descuento 1 %', '.col-d1'], ['Descuento 2 %', '.col-d2'], ['Descuento 3 %', '.col-d3'],
         ['Descuento 4 %', '.col-d4'], ['Descuento 5 %', '.col-d5'],
@@ -1436,6 +1454,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         EUR: 'euros (EUR)'
       }[monedaActual] || monedaActual;
       const cliente = document.getElementById('metaCliente').value.trim() || 'Sin especificar';
+      const nroCliente = document.getElementById('metaNroCliente').value.trim() || '—';
       const numero = document.getElementById('metaNumero').value.trim() || 'Sin número';
       const fechaRaw = document.getElementById('metaFecha').value;
       const vigencia = fechaRaw ? new Date(fechaRaw + 'T00:00:00').toLocaleDateString('es-AR') : 'Sin especificar';
@@ -1455,23 +1474,25 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       pdf.texto('N° ' + numero, W - margen, 13, { tamano: 10, color: C.blanco, alinear: 'right' });
 
       pdf.texto('CLIENTE', margen, 43, { tamano: 8, negrita: true, color: C.gris });
-      pdf.texto('NÚMERO DE PRESUPUESTO', W / 2, 43, { tamano: 8, negrita: true, color: C.gris });
+      pdf.texto('N° CLIENTE', 122, 43, { tamano: 8, negrita: true, color: C.gris });
+      pdf.texto('NÚMERO DE PRESUPUESTO', 164, 43, { tamano: 8, negrita: true, color: C.gris });
       pdf.texto('VÁLIDO HASTA', W - margen, 43, { tamano: 8, negrita: true, color: C.gris, alinear: 'right' });
-      pdf.envolver(cliente, 11, false, 100).slice(0, 2).forEach((l, i) => pdf.texto(l, margen, 50 + i * 5, { tamano: 11, color: C.tinta }));
-      pdf.texto(numero, W / 2, 50, { tamano: 11, color: C.tinta });
+      pdf.envolver(cliente, 11, false, 98).slice(0, 2).forEach((l, i) => pdf.texto(l, margen, 50 + i * 5, { tamano: 11, color: C.tinta }));
+      pdf.texto(nroCliente, 122, 50, { tamano: 11, color: C.tinta });
+      pdf.texto(numero, 164, 50, { tamano: 11, color: C.tinta });
       pdf.texto(vigencia, W - margen, 50, { tamano: 11, color: C.tinta, alinear: 'right' });
       pdf.linea(margen, 59, W - margen, 59, C.borde, 0.2);
 
       // ---- Tabla ----
       const columnas = [
-        { t: 'Ítem', w: 12, a: 'center' }, { t: 'Cant.', w: 14, a: 'right' }, { t: 'Código', w: 27, a: 'left' },
-        { t: 'Descripción', w: 80, a: 'left' }, { t: 'Marca', w: 30, a: 'left' },
-        { t: 'Precio unitario', w: 53, a: 'right' }, { t: 'Total', w: 53, a: 'right', b: true }
+        { t: 'Ítem', w: 12, a: 'center' }, { t: 'Cant.', w: 14, a: 'right' }, { t: 'Código', w: 26, a: 'left' },
+        { t: 'Descripción', w: 66, a: 'left' }, { t: 'Solicitud Cliente', w: 40, a: 'left' }, { t: 'Marca', w: 26, a: 'left' },
+        { t: 'Precio unitario', w: 42, a: 'right' }, { t: 'Total', w: 43, a: 'right', b: true }
       ];
       const TAM = 8, PAD = 2.5, LH = TAM / PDF_MM * 1.15, MAX_LINEAS = 14;
       const filas = trsPDF.map(tr => {
         const v = s => { const c = tr.querySelector(s); return c ? c.value : ''; };
-        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-marca'),
+        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-solicitud'), v('.col-marca'),
                 importe(v('.col-venta')), importe(v('.col-totventa'))];
       });
       const total = trsPDF.reduce((s, tr) => s + (parseFloat(tr.dataset.totalVenta) || 0), 0);
@@ -1604,7 +1625,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         const headerIndex = matrix.findIndex(row => row.some(v => claves.includes(norm(v))));
         const headers = headerIndex >= 0 ? matrix[headerIndex].map(norm) : null;
         const data = matrix.slice(headerIndex >= 0 ? headerIndex + 1 : 0).filter(row => row.some(v => String(v).trim() !== ''));
-        const numericos = ['nroItem','cantidad','precio','d1','d2','d3','d4','d5','margen'];
+        let monedasNoReconocidas = 0;
         const items = data.map(row => {
           const item = {};
           camposExcel.forEach((c, i) => {
@@ -1617,14 +1638,21 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
           });
           ['cantidad','precio','d1','d2','d3','d4','d5','margen'].forEach(k => { if (item[k] !== undefined) item[k] = normalizarNumero(item[k]); });
           if (item.cantidad === '' || item.cantidad === undefined) item.cantidad = 1;
-          if (item.monedaFila) item.monedaFila = normalizarMonedaFila(item.monedaFila);
+          if (item.monedaFila !== undefined && String(item.monedaFila).trim() !== '') {
+            const reconocida = reconocerMoneda(item.monedaFila);
+            if (!reconocida) monedasNoReconocidas++;
+            item.monedaFila = reconocida || '$';
+          } else {
+            item.monedaFila = '$';
+          }
           return item;
         });
         if (!items.length) throw new Error('El archivo no contiene filas de productos.');
         if (hayDatos() && !confirm('La importación reemplazará los ítems actuales. ¿Continuar?')) return;
         document.getElementById('tbodyPresupuesto').innerHTML = '';
         items.forEach(item => agregarFila(item)); recalcularPresupuestoCompleto(); programarAutosave();
-        mostrarToast('Importación completada: ' + items.length + ' ítem(s).', 'exito');
+        if (monedasNoReconocidas) mostrarToast('Importación completada: ' + items.length + ' ítem(s). ' + monedasNoReconocidas + ' fila(s) con moneda no reconocida se cargaron en $. Valores válidos: $ o 1, USD o 2, DIVISA o 3, EUR o 58.', 'alerta');
+        else mostrarToast('Importación completada: ' + items.length + ' ítem(s).', 'exito');
       } catch (err) { mostrarToast(err.message || 'No se pudo leer el archivo.', 'alerta'); }
       finally { event.target.value = ''; }
     }
@@ -1638,7 +1666,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         const v = sel => tr.querySelector(sel).value;
         return {
           nroItem: v('.col-nroitem'), cantidad: v('.col-cantidad'), codigo: v('.col-codigo'),
-          detalle: v('.col-detalle'), marca: v('.col-marca'), obs: v('.col-obs'),
+          detalle: v('.col-detalle'), solicitud: v('.col-solicitud'), marca: v('.col-marca'), obs: v('.col-obs'),
           precio: v('.col-precio'), monedaFila: v('.col-monedafila'),
           d1: v('.col-d1'), d2: v('.col-d2'), d3: v('.col-d3'), d4: v('.col-d4'), d5: v('.col-d5'),
           margen: v('.col-margen'), origen: v('.col-origen'),
@@ -1651,6 +1679,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         version: 3,
         fechaBackup: new Date().toISOString(),
         metadata: {
+          nroCliente: document.getElementById('metaNroCliente').value,
           cliente: document.getElementById('metaCliente').value,
           numero: document.getElementById('metaNumero').value,
           fecha: document.getElementById('metaFecha').value,
@@ -1668,6 +1697,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       if (!backup || !Array.isArray(backup.items)) throw new Error('El archivo no es un respaldo de presupuesto válido.');
       const m = backup.metadata || {};
       const poner = (id, valor) => { if (valor !== undefined && valor !== null) document.getElementById(id).value = valor; };
+      poner('metaNroCliente', m.nroCliente !== undefined ? String(m.nroCliente).replace(/\D/g, '') : m.nroCliente);
       poner('metaCliente', m.cliente);
       poner('metaNumero', m.numero);
       poner('metaFecha', m.fecha);
@@ -1755,9 +1785,9 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       if (hayDatos() && !confirm('Se reemplazarán los ítems actuales por los datos de prueba. ¿Continuar?')) return;
       document.getElementById('tbodyPresupuesto').innerHTML = '';
       const datosPrueba = [
-        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", marca: "Stanley", obs: "Oferta", precio: 150000, d1: 10, margen: 35, memo: "Hable con Jorge, me hizo un descuento adicional de un 10% para compra de mas de 50 productos. mail 09/07/26 10.45 am" },
+        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", solicitud: "Entrega en obra Añelo", marca: "Stanley", obs: "Oferta", precio: 150000, d1: 10, margen: 35, memo: "Hable con Jorge, me hizo un descuento adicional de un 10% para compra de mas de 50 productos. mail 09/07/26 10.45 am" },
         { nroItem: 2, cantidad: 20, codigo: "HER-042", detalle: "Juego de Mechas para Concreto x10", marca: "Bosch", obs: "Caja plástica", precio: 28000, d1: 15, margen: 40 },
-        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", marca: "Prysmian", obs: "IRAM", precio: 85000, d1: 20, margen: 25 }
+        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", solicitud: "Cotizar también 4mm", marca: "Prysmian", obs: "IRAM", precio: 85000, d1: 20, margen: 25 }
       ];
 
       datosPrueba.forEach(item => agregarFila(item));
