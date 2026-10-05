@@ -1167,6 +1167,91 @@
       return '$';
     }
 
+
+    function escaparHTML(valor) {
+      return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function descargarArchivo(nombre, contenido, tipo) {
+      const url = URL.createObjectURL(new Blob([contenido], {type}));
+      const a = document.createElement('a'); a.href = url; a.download = nombre;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    function csvCell(v) {
+      let s = v == null ? '' : String(v);
+      if (/^[\\s]*[=+@\\-\\t\\r]/.test(s)) s = "'" + s;
+      return '"' + s.replace(/"/g, '""') + '"';
+    }
+    const camposExcel = [
+      ['nroItem','N° Item',['n item','numero item']], ['cantidad','Cantidad',['cant']],
+      ['codigo','Código',['cod','sku']], ['detalle','Detalle Artículo',['descripcion','producto']],
+      ['marca','Marca',[]], ['obs','Observaciones',['notas']], ['precio','Precio Lista',['precio unitario']],
+      ['monedaFila','Moneda Costo',['moneda']], ['d1','Descuento 1 %',['d1','desc 1']],
+      ['d2','Descuento 2 %',['d2','desc 2']], ['d3','Descuento 3 %',['d3','desc 3']],
+      ['d4','Descuento 4 %',['d4','desc 4']], ['d5','Descuento 5 %',['d5','desc 5']],
+      ['margen','Margen %',[]], ['origen','Proveedor',['origen']],
+      ['codCliente','Código Cliente A',['cod cliente']], ['codCliente2','Código Cliente B',['cod cliente 2']]
+    ];
+    function normalizarEncabezado(v) {
+      return String(v == null ? '' : v).normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    }
+    function exportarCSV() {
+      const rows = [camposExcel.map(c => csvCell(c[1])).join(';')];
+      document.querySelectorAll('#tbodyPresupuesto tr').forEach(tr => {
+        const vals = camposExcel.map(c => {
+          const cls = ({nroItem:'col-nroitem', monedaFila:'col-monedafila', codCliente:'col-codcliente', codCliente2:'col-codcliente2'})[c[0]] || ('col-' + c[0]);
+          const el = tr.querySelector('.' + cls);
+          return csvCell(el ? el.value : '');
+        });
+        vals.push(csvCell(tr.dataset.memo || ''));
+        rows.push(vals.join(';'));
+      });
+      rows[0] = rows[0].replace(/"Código Cliente B"$/, '"Código Cliente B";"Memo"');
+      const name = (document.getElementById('metaNumero').value || 'Presupuesto').replace(/[^a-z0-9_-]/gi,'_');
+      descargarArchivo('Presupuesto_' + name + '.csv', '\\uFEFF' + rows.join('\\r\\n'), 'text/csv;charset=utf-8');
+      mostrarToast('Archivo CSV exportado.', 'exito');
+    }
+    function exportarPDF() {
+      if (!window.jspdf || !window.jspdf.jsPDF) { mostrarToast('No se pudo cargar la biblioteca PDF. Revisá tu conexión.', 'alerta'); return; }
+      const doc = new window.jspdf.jsPDF({orientation:'landscape', unit:'mm', format:'a4'});
+      const val = id => document.getElementById(id).value || '—';
+      doc.setFontSize(16); doc.text('Presupuesto ' + val('metaNumero'), 14, 15);
+      doc.setFontSize(10); doc.text('Cliente: ' + val('metaCliente') + '    Vigencia: ' + val('metaFecha'), 14, 22);
+      const body = Array.from(document.querySelectorAll('#tbodyPresupuesto tr'), tr => {
+        const v = cls => { const el=tr.querySelector('.'+cls); return el ? el.value : ''; };
+        return [v('col-nroitem'),v('col-cantidad'),v('col-codigo'),v('col-detalle'),v('col-marca'),v('col-precio'),v('col-monedafila'),v('col-costo'),v('col-margen'),v('col-venta'),v('col-totventa')];
+      });
+      doc.autoTable({startY:28, head:[['Ítem','Cant.','Código','Detalle','Marca','Precio lista','Moneda','Costo neto','Margen %','Precio venta','Total venta']], body, styles:{fontSize:7,cellPadding:1.5}, columnStyles:{3:{cellWidth:48}}});
+      doc.save('Presupuesto_' + val('metaNumero').replace(/[^a-z0-9_-]/gi,'_') + '.pdf');
+      mostrarToast('Archivo PDF exportado.', 'exito');
+    }
+    async function importarExcel(event) {
+      const file = event.target.files && event.target.files[0]; if (!file) return;
+      try {
+        if (!window.XLSX) throw new Error('No se pudo cargar la biblioteca Excel.');
+        const book = XLSX.read(await file.arrayBuffer(), {type:'array',raw:false});
+        const matrix = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], {header:1, defval:'', raw:false});
+        const norm = v => normalizarEncabezado(v);
+        const headerIndex = matrix.findIndex(row => row.some(v => ['codigo','cantidad','detalle articulo','descripcion','precio lista'].includes(norm(v))));
+        const headers = headerIndex >= 0 ? matrix[headerIndex].map(norm) : null;
+        const data = matrix.slice(headerIndex >= 0 ? headerIndex+1 : 0).filter(row => row.some(v => String(v).trim() !== ''));
+        const items = data.map(row => {
+          const item = {};
+          camposExcel.forEach((c,i) => {
+            const ix = headers ? headers.findIndex(h => [norm(c[1]), ...c[2].map(norm)].includes(h)) : i;
+            if (ix >= 0 && ix < row.length) item[c[0]] = row[ix];
+          });
+          if (item.monedaFila) item.monedaFila = normalizarMonedaFila(item.monedaFila);
+          return item;
+        });
+        if (!items.length) throw new Error('El archivo no contiene filas de productos.');
+        document.getElementById('tbodyPresupuesto').innerHTML = '';
+        items.forEach(item => agregarFila(item)); recalcularPresupuestoCompleto();
+        mostrarToast('Importación completada: ' + items.length + ' ítem(s).', 'exito');
+      } catch (err) { mostrarToast(err.message || 'No se pudo leer el archivo.', 'alerta'); }
+      finally { event.target.value = ''; }
+    }
+
     function guardarBackupJSON() {
       const filas = document.querySelectorAll('#tbodyPresupuesto tr');
       const items = [];
