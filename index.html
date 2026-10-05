@@ -888,13 +888,13 @@
 
       tr.innerHTML = `
         <td class="p-1 text-center text-gray-400 font-mono text-[11px] row-index no-print">${numFila}</td>
-        <td class="p-0.5"><input type="text" class="cell-input text-center font-bold col-nroitem" placeholder="Ej: 1" value="${datos && datos.nroItem !== undefined ? datos.nroItem : ''}"></td>
-        <td class="p-0.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${datos && datos.cantidad !== undefined ? datos.cantidad : 1}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-codigo font-mono" placeholder="Ej: ART-101" value="${datos ? datos.codigo : ''}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${datos ? datos.detalle : ''}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-marca" placeholder="Marca..." value="${datos ? datos.marca : ''}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${datos ? datos.obs : ''}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${datos ? datos.precio : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input text-center font-bold col-nroitem" placeholder="Ej: 1" value="${escaparHTML(datos && datos.nroItem !== undefined ? datos.nroItem : '')}"></td>
+        <td class="p-0.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${escaparHTML(datos && datos.cantidad !== undefined ? datos.cantidad : 1)}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codigo font-mono" placeholder="Ej: ART-101" value="${escaparHTML(datos ? datos.codigo : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${escaparHTML(datos ? datos.detalle : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-marca" placeholder="Marca..." value="${escaparHTML(datos ? datos.marca : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${escaparHTML(datos ? datos.obs : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${escaparHTML(datos ? datos.precio : '')}"></td>
         <td class="p-0.5">
           <select class="cell-input text-center col-monedafila" onchange="calcularFila(this.closest('tr')); calcularTotalesGenerales();">
             <option value="$" ${(!datos || !datos.monedaFila || datos.monedaFila === '$') ? 'selected' : ''}>$ (ARS)</option>
@@ -903,18 +903,18 @@
             <option value="EUR" ${(datos && datos.monedaFila === 'EUR') ? 'selected' : ''}>€ Euro</option>
           </select>
         </td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${datos ? datos.d1 : ''}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${datos ? datos.d2 : ''}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${datos ? datos.d3 : ''}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${datos ? datos.d4 : ''}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${datos ? datos.d5 : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${escaparHTML(datos ? datos.d1 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${escaparHTML(datos ? datos.d2 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${escaparHTML(datos ? datos.d3 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${escaparHTML(datos ? datos.d4 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${escaparHTML(datos ? datos.d5 : '')}"></td>
         <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-costo" value="0.00"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${datos ? datos.margen : ''}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${escaparHTML(datos ? datos.margen : '')}"></td>
         <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-venta" value="0.00"></td>
         <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly-highlight col-totventa" value="0.00"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-origen" placeholder="Nac./Imp." value="${datos ? datos.origen : ''}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-codcliente" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente : ''}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-codcliente2" placeholder="Ej: CLI-99" value="${datos ? datos.codCliente2 : ''}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-origen" placeholder="Nac./Imp." value="${escaparHTML(datos ? datos.origen : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codcliente" placeholder="Ej: CLI-99" value="${escaparHTML(datos ? datos.codCliente : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-codcliente2" placeholder="Ej: CLI-99" value="${escaparHTML(datos ? datos.codCliente2 : '')}"></td>
         <td class="p-0.5 text-center no-print">
           <button type="button" onclick="abrirModalMemo(this)" class="btn-memo ${memoInicial ? 'btn-memo-active' : ''} text-gray-400 hover:text-amber-600 transition-colors p-1 border border-transparent rounded" title="${memoInicial ? 'Ver/Editar Memo' : 'Agregar/Editar Memo'}">
             <i class="fa-solid fa-note-sticky text-sm"></i>
@@ -1208,7 +1208,7 @@
       });
       rows[0] = rows[0].replace(/"Código Cliente B"$/, '"Código Cliente B";"Memo"');
       const name = (document.getElementById('metaNumero').value || 'Presupuesto').replace(/[^a-z0-9_-]/gi,'_');
-      descargarArchivo('Presupuesto_' + name + '.csv', '\\uFEFF' + rows.join('\\r\\n'), 'text/csv;charset=utf-8');
+      descargarArchivo('Presupuesto_' + name + '.csv', '\uFEFF' + rows.join('\r\n'), 'text/csv;charset=utf-8');
       mostrarToast('Archivo CSV exportado.', 'exito');
     }
     function exportarPDF() {
