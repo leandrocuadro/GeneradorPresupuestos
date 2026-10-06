@@ -529,8 +529,8 @@
               <th class="w-20 text-center">1. Cantidad</th>
               <th class="w-28">2. Código</th>
               <th class="w-64">3. Detalle Artículo</th>
-              <th class="w-56">4. Solicitud Cliente</th>
-              <th class="w-32">5. Marca</th>
+              <th class="w-32">4. Marca</th>
+              <th class="w-56">5. Solicitud Cliente</th>
               <th class="w-40">6. Observaciones</th>
               <th class="w-32 text-right">7. Precio Lista Prov.</th>
               <th class="w-20 text-center">Moneda Costo</th>
@@ -557,8 +557,8 @@
               <td class="p-1"><input type="text" data-col="col-cantidad" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
               <td class="p-1"><input type="text" data-col="col-codigo" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-detalle" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
-              <td class="p-1"><input type="text" data-col="col-solicitud" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-marca" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
+              <td class="p-1"><input type="text" data-col="col-solicitud" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-obs" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input"></td>
               <td class="p-1"><input type="text" data-col="col-precio" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-right"></td>
               <td class="p-1"><input type="text" data-col="col-monedafila" oninput="filtrarTabla()" placeholder="Filtrar..." class="cell-input text-center"></td>
@@ -916,8 +916,8 @@
         <td class="p-0.5"><input type="number" min="1" step="1" class="cell-input text-center font-bold col-cantidad" placeholder="1" value="${escaparHTML(datos && datos.cantidad !== undefined ? datos.cantidad : 1)}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-codigo font-mono" placeholder="Ej: ART-101" value="${escaparHTML(datos ? datos.codigo : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-detalle" placeholder="Descripción del artículo..." value="${escaparHTML(datos ? datos.detalle : '')}"></td>
-        <td class="p-0.5"><input type="text" class="cell-input col-solicitud" placeholder="Pedido del cliente..." value="${escaparHTML(datos ? datos.solicitud : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-marca" placeholder="Marca..." value="${escaparHTML(datos ? datos.marca : '')}"></td>
+        <td class="p-0.5"><input type="text" class="cell-input col-solicitud" placeholder="Pedido del cliente..." value="${escaparHTML(datos ? datos.solicitud : '')}"></td>
         <td class="p-0.5"><input type="text" class="cell-input col-obs" placeholder="Notas..." value="${escaparHTML(datos ? datos.obs : '')}"></td>
         <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-right font-mono col-precio" placeholder="0.00" value="${escaparHTML(datos ? datos.precio : '')}"></td>
         <td class="p-0.5">
@@ -1220,6 +1220,24 @@
     function escaparHTML(valor) {
       return String(valor == null ? '' : valor).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
+    // Nombre base de los archivos: "NroCliente_Cliente-Empresa_NºPresupuesto"
+    // (se quitan los caracteres que Windows/macOS no admiten en nombres de archivo, como / \ : * ? " < > |)
+    function limpiarParteNombre(txt, maximo) {
+      return String(txt == null ? '' : txt)
+        .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '-')
+        .replace(/\s+/g, ' ')
+        .replace(/-{2,}/g, '-')
+        .trim().slice(0, maximo).trim();
+    }
+    function nombreBaseArchivo() {
+      const partes = [
+        limpiarParteNombre(document.getElementById('metaNroCliente').value, 20),
+        limpiarParteNombre(document.getElementById('metaCliente').value, 60),
+        limpiarParteNombre(document.getElementById('metaNumero').value, 40)
+      ].filter(Boolean);
+      // Windows no admite nombres que terminen en punto o espacio
+      return (partes.join('_').replace(/[\s.]+$/g, '')) || 'Presupuesto';
+    }
     function descargarArchivo(nombre, contenido, tipo) {
       const url = URL.createObjectURL(new Blob([contenido], {type: tipo}));
       const a = document.createElement('a'); a.href = url; a.download = nombre;
@@ -1235,8 +1253,8 @@
     const camposExcel = [
       ['nroItem','N° Item',['item','n item','numero item','nro item']], ['cantidad','Cantidad',['cant']],
       ['codigo','Código',['cod','sku']], ['detalle','Detalle Artículo',['descripcion','producto']],
-      ['solicitud','Solicitud Cliente',['solicitud','solicitud del cliente','pedido cliente','pedido del cliente']],
-      ['marca','Marca',[]], ['obs','Observaciones',['notas']], ['precio','Precio Lista',['precio unitario']],
+      ['marca','Marca',[]],
+      ['solicitud','Solicitud Cliente',['solicitud','solicitud del cliente','pedido cliente','pedido del cliente']], ['obs','Observaciones',['notas']], ['precio','Precio Lista',['precio unitario']],
       ['monedaFila','Moneda Costo',['moneda']], ['d1','Descuento 1 %',['d1','desc 1']],
       ['d2','Descuento 2 %',['d2','desc 2']], ['d3','Descuento 3 %',['d3','desc 3']],
       ['d4','Descuento 4 %',['d4','desc 4']], ['d5','Descuento 5 %',['d5','desc 5']],
@@ -1251,7 +1269,7 @@
       cerrarDropdowns();
       const columnas = [
         ['Ítem', '.col-nroitem'], ['Cantidad', '.col-cantidad'], ['Código', '.col-codigo'],
-        ['Detalle Artículo', '.col-detalle'], ['Solicitud Cliente', '.col-solicitud'], ['Marca', '.col-marca'], ['Observaciones', '.col-obs'],
+        ['Detalle Artículo', '.col-detalle'], ['Marca', '.col-marca'], ['Solicitud Cliente', '.col-solicitud'], ['Observaciones', '.col-obs'],
         ['Precio Lista', '.col-precio'], ['Moneda Costo', '.col-monedafila'],
         ['Descuento 1 %', '.col-d1'], ['Descuento 2 %', '.col-d2'], ['Descuento 3 %', '.col-d3'],
         ['Descuento 4 %', '.col-d4'], ['Descuento 5 %', '.col-d5'],
@@ -1278,8 +1296,7 @@
         exportadas++;
       });
       if (!exportadas) { mostrarToast('No hay ítems cargados para exportar.', 'alerta'); return; }
-      const numero = (document.getElementById('metaNumero').value || 'Presupuesto').replace(/[^a-z0-9_-]/gi, '_');
-      descargarArchivo('Presupuesto_' + numero + '.csv', '\uFEFF' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
+      descargarArchivo(nombreBaseArchivo() + '.csv', '\uFEFF' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
       mostrarToast('Archivo CSV exportado (' + exportadas + ' ítem(s)).' + notaFiltros(), 'exito');
     }
     /* ============================================================
@@ -1486,13 +1503,13 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       // ---- Tabla ----
       const columnas = [
         { t: 'Ítem', w: 12, a: 'center' }, { t: 'Cant.', w: 14, a: 'right' }, { t: 'Código', w: 26, a: 'left' },
-        { t: 'Descripción', w: 66, a: 'left' }, { t: 'Solicitud Cliente', w: 40, a: 'left' }, { t: 'Marca', w: 26, a: 'left' },
+        { t: 'Descripción', w: 66, a: 'left' }, { t: 'Marca', w: 26, a: 'left' }, { t: 'Solicitud Cliente', w: 40, a: 'left' },
         { t: 'Precio unitario', w: 42, a: 'right' }, { t: 'Total', w: 43, a: 'right', b: true }
       ];
       const TAM = 8, PAD = 2.5, LH = TAM / PDF_MM * 1.15, MAX_LINEAS = 14;
       const filas = trsPDF.map(tr => {
         const v = s => { const c = tr.querySelector(s); return c ? c.value : ''; };
-        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-solicitud'), v('.col-marca'),
+        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-marca'), v('.col-solicitud'),
                 importe(v('.col-venta')), importe(v('.col-totventa'))];
       });
       const total = trsPDF.reduce((s, tr) => s + (parseFloat(tr.dataset.totalVenta) || 0), 0);
@@ -1567,7 +1584,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       }
 
       const bytes = pdf.generar({ titulo: 'Presupuesto ' + numero, asunto: 'Presupuesto para ' + cliente });
-      descargarArchivo('Presupuesto_' + numero.replace(/[^a-z0-9_-]/gi, '_') + '.pdf', bytes, 'application/pdf');
+      descargarArchivo(nombreBaseArchivo() + '.pdf', bytes, 'application/pdf');
       mostrarToast('Archivo PDF exportado.' + notaFiltros(), 'exito');
     }
     function parsearCSV(texto) {
@@ -1666,7 +1683,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         const v = sel => tr.querySelector(sel).value;
         return {
           nroItem: v('.col-nroitem'), cantidad: v('.col-cantidad'), codigo: v('.col-codigo'),
-          detalle: v('.col-detalle'), solicitud: v('.col-solicitud'), marca: v('.col-marca'), obs: v('.col-obs'),
+          detalle: v('.col-detalle'), marca: v('.col-marca'), solicitud: v('.col-solicitud'), obs: v('.col-obs'),
           precio: v('.col-precio'), monedaFila: v('.col-monedafila'),
           d1: v('.col-d1'), d2: v('.col-d2'), d3: v('.col-d3'), d4: v('.col-d4'), d5: v('.col-d5'),
           margen: v('.col-margen'), origen: v('.col-origen'),
@@ -1722,7 +1739,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
       link.href = url;
-      link.setAttribute("download", `Backup_Presupuesto_${new Date().toISOString().slice(0,10)}.json`);
+      link.setAttribute("download", nombreBaseArchivo() + '.json');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1785,9 +1802,9 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       if (hayDatos() && !confirm('Se reemplazarán los ítems actuales por los datos de prueba. ¿Continuar?')) return;
       document.getElementById('tbodyPresupuesto').innerHTML = '';
       const datosPrueba = [
-        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", solicitud: "Entrega en obra Añelo", marca: "Stanley", obs: "Oferta", precio: 150000, d1: 10, margen: 35, memo: "Hable con Jorge, me hizo un descuento adicional de un 10% para compra de mas de 50 productos. mail 09/07/26 10.45 am" },
+        { nroItem: 1, cantidad: 5, codigo: "HER-001", detalle: "Taladro Percutor 750W 13mm", marca: "Stanley", solicitud: "Entrega en obra Añelo", obs: "Oferta", precio: 150000, d1: 10, margen: 35, memo: "Hable con Jorge, me hizo un descuento adicional de un 10% para compra de mas de 50 productos. mail 09/07/26 10.45 am" },
         { nroItem: 2, cantidad: 20, codigo: "HER-042", detalle: "Juego de Mechas para Concreto x10", marca: "Bosch", obs: "Caja plástica", precio: 28000, d1: 15, margen: 40 },
-        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", solicitud: "Cotizar también 4mm", marca: "Prysmian", obs: "IRAM", precio: 85000, d1: 20, margen: 25 }
+        { nroItem: 3, cantidad: 10, codigo: "ELE-105", detalle: "Cable Unipolar 2.5mm x 100m", marca: "Prysmian", solicitud: "Cotizar también 4mm", obs: "IRAM", precio: 85000, d1: 20, margen: 25 }
       ];
 
       datosPrueba.forEach(item => agregarFila(item));
