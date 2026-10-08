@@ -695,6 +695,7 @@
     let monedaActual = '$';
     let mapaProductosGitHub = {}; 
     let filaFilaSeleccionadaMemo = null;
+    let promesaCatalogo = null;   // se resuelve cuando termina de cargarse el catálogo de productos
 
     async function cargarProductosGitHub() {
       const urlCSV = 'https://raw.githubusercontent.com/leandrocuadro/productos.csv/refs/heads/main/productos.csv';
@@ -977,20 +978,62 @@
       const inputCodigo = tr.querySelector('.col-codigo');
       const inputDetalle = tr.querySelector('.col-detalle');
       const inputMarca = tr.querySelector('.col-marca');
+      tr.dataset.codPrevio = (datos && datos.codigo != null) ? String(datos.codigo).trim() : '';
       if (inputCodigo && inputDetalle) {
         inputCodigo.addEventListener('input', function() {
-          const codigoBuscado = this.value.trim().toUpperCase();
-          if (mapaProductosGitHub[codigoBuscado]) {
-            const prod = mapaProductosGitHub[codigoBuscado];
-            inputDetalle.value = typeof prod === 'object' ? (prod.nombre || '') : prod;
-            if (inputMarca) inputMarca.value = typeof prod === 'object' ? (prod.marca || '') : '';
+          const codigoActual = this.value.trim();
+          const prod = buscarProducto(codigoActual);
+          if (prod) {
+            // Código del catálogo: completa Detalle y Marca
+            inputDetalle.value = prod.nombre || '';
+            if (inputMarca) inputMarca.value = prod.marca || '';
+            tr.dataset.autoDetalle = inputDetalle.value;
+            tr.dataset.autoMarca = inputMarca ? inputMarca.value : '';
+          } else if (!codigoActual) {
+            // El usuario borró el código: se vacían Detalle y Marca
+            if (tr.dataset.codPrevio) {
+              inputDetalle.value = '';
+              if (inputMarca) inputMarca.value = '';
+            }
+            tr.dataset.autoDetalle = '';
+            tr.dataset.autoMarca = '';
+          } else {
+            // Código sin coincidencia: se quita solo lo que se había completado automáticamente
+            if (tr.dataset.autoDetalle && inputDetalle.value === tr.dataset.autoDetalle) inputDetalle.value = '';
+            if (inputMarca && tr.dataset.autoMarca && inputMarca.value === tr.dataset.autoMarca) inputMarca.value = '';
+            tr.dataset.autoDetalle = '';
+            tr.dataset.autoMarca = '';
           }
+          tr.dataset.codPrevio = codigoActual;
         });
       }
 
       tbody.appendChild(tr);
       if (datos) calcularFila(tr);
       actualizarIndices();
+      return tr;
+    }
+
+    // Busca un código en el catálogo de productos (ignora mayúsculas y espacios)
+    function buscarProducto(codigo) {
+      const clave = String(codigo == null ? '' : codigo).trim().toUpperCase();
+      return clave ? mapaProductosGitHub[clave] : undefined;
+    }
+
+    // Completa Detalle y Marca de una fila según su código, sin pisar lo que ya tenga cargado
+    function completarDesdeCatalogo(tr) {
+      const prod = buscarProducto(tr.querySelector('.col-codigo').value);
+      if (!prod) return false;
+      const detalle = tr.querySelector('.col-detalle');
+      const marca = tr.querySelector('.col-marca');
+      let cambio = false;
+      if (!detalle.value.trim() && prod.nombre) {
+        detalle.value = prod.nombre; tr.dataset.autoDetalle = prod.nombre; cambio = true;
+      }
+      if (!marca.value.trim() && prod.marca) {
+        marca.value = prod.marca; tr.dataset.autoMarca = prod.marca; cambio = true;
+      }
+      return cambio;
     }
 
     function agregarMultiplesFilas(cantidad) {
@@ -1278,7 +1321,11 @@
         ['Proveedor', '.col-origen'], ['Código Cliente A', '.col-codcliente'],
         ['Código Cliente B', '.col-codcliente2'], ['Memo', null]
       ];
-      const numericas = ['.col-cantidad','.col-precio','.col-d1','.col-d2','.col-d3','.col-d4','.col-d5','.col-costo','.col-margen','.col-venta','.col-totventa'];
+      const numericas = ['.col-cantidad','.col-d1','.col-d2','.col-d3','.col-d4','.col-d5','.col-margen'];
+      // Importes en formato moneda con 2 decimales: "$ 1.234,50" (Precio Lista usa la moneda de la fila; el resto, la del presupuesto)
+      const simboloCSV = m => ({ '$': '$', USD: 'U$S', DIVISA: 'U$S', EUR: '€' }[m] || '$');
+      const importesFila = ['.col-precio'];
+      const importesPresupuesto = ['.col-costo', '.col-venta', '.col-totventa'];
       const lineas = [columnas.map(col => csvCell(col[0])).join(';')];
       let exportadas = 0;
       document.querySelectorAll('#tbodyPresupuesto tr').forEach(tr => {
@@ -1289,7 +1336,14 @@
           let valor = indice === columnas.length - 1
             ? (tr.dataset.memo || '')
             : (tr.querySelector(col[1])?.value || '');
-          if (col[1] && numericas.includes(col[1])) valor = String(valor).replace('.', ',');
+          if (col[1] && (importesFila.includes(col[1]) || importesPresupuesto.includes(col[1]))) {
+            const n = parseFloat(valor);
+            if (isNaN(n)) valor = '';
+            else {
+              const moneda = importesFila.includes(col[1]) ? (tr.querySelector('.col-monedafila')?.value || '$') : monedaActual;
+              valor = simboloCSV(moneda) + ' ' + formatoNumeroAR(n);
+            }
+          } else if (col[1] && numericas.includes(col[1])) valor = String(valor).replace('.', ',');
           return csvCell(valor);
         });
         lineas.push(valores.join(';'));
@@ -1486,9 +1540,8 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       // ---- Portada de la primera página: encabezado + ficha ----
       pdf.rect(0, 0, W, 31, C.marino);
       pdf.rect(0, 31, W, 2, C.azul);
-      pdf.texto('PRESUPUESTO COMERCIAL', margen, 10, { tamano: 9, negrita: true, color: C.blanco });
-      pdf.texto('Propuesta económica', margen, 21, { tamano: 21, negrita: true, color: C.blanco });
-      pdf.texto('N° ' + numero, W - margen, 13, { tamano: 10, color: C.blanco, alinear: 'right' });
+      pdf.texto('Propuesta económica', margen, 19.5, { tamano: 21, negrita: true, color: C.blanco });
+      pdf.texto('N° ' + numero, W - margen, 19.5, { tamano: 10, color: C.blanco, alinear: 'right' });
 
       pdf.texto('CLIENTE', margen, 43, { tamano: 8, negrita: true, color: C.gris });
       pdf.texto('N° CLIENTE', 122, 43, { tamano: 8, negrita: true, color: C.gris });
@@ -1502,14 +1555,15 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
 
       // ---- Tabla ----
       const columnas = [
-        { t: 'Ítem', w: 12, a: 'center' }, { t: 'Cant.', w: 14, a: 'right' }, { t: 'Código', w: 26, a: 'left' },
-        { t: 'Descripción', w: 66, a: 'left' }, { t: 'Marca', w: 26, a: 'left' }, { t: 'Solicitud Cliente', w: 40, a: 'left' },
-        { t: 'Precio unitario', w: 42, a: 'right' }, { t: 'Total', w: 43, a: 'right', b: true }
+        { t: 'Ítem', w: 11, a: 'center' }, { t: 'Cant.', w: 13, a: 'right' }, { t: 'Código', w: 24, a: 'left' },
+        { t: 'Descripción', w: 56, a: 'left' }, { t: 'Marca', w: 22, a: 'left' }, { t: 'Solicitud Cliente', w: 34, a: 'left' },
+        { t: 'Observaciones', w: 36, a: 'left' },
+        { t: 'Precio unitario', w: 35, a: 'right' }, { t: 'Total', w: 38, a: 'right', b: true }
       ];
       const TAM = 8, PAD = 2.5, LH = TAM / PDF_MM * 1.15, MAX_LINEAS = 14;
       const filas = trsPDF.map(tr => {
         const v = s => { const c = tr.querySelector(s); return c ? c.value : ''; };
-        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-marca'), v('.col-solicitud'),
+        return [v('.col-nroitem'), v('.col-cantidad'), v('.col-codigo'), v('.col-detalle'), v('.col-marca'), v('.col-solicitud'), v('.col-obs'),
                 importe(v('.col-venta')), importe(v('.col-totventa'))];
       });
       const total = trsPDF.reduce((s, tr) => s + (parseFloat(tr.dataset.totalVenta) || 0), 0);
@@ -1666,10 +1720,19 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         });
         if (!items.length) throw new Error('El archivo no contiene filas de productos.');
         if (hayDatos() && !confirm('La importación reemplazará los ítems actuales. ¿Continuar?')) return;
+        // Espera a que el catálogo de productos termine de cargar (por si se importa recién abierta la app)
+        if (promesaCatalogo) { try { await promesaCatalogo; } catch (e) { /* se informa más abajo */ } }
         document.getElementById('tbodyPresupuesto').innerHTML = '';
-        items.forEach(item => agregarFila(item)); recalcularPresupuestoCompleto(); programarAutosave();
-        if (monedasNoReconocidas) mostrarToast('Importación completada: ' + items.length + ' ítem(s). ' + monedasNoReconocidas + ' fila(s) con moneda no reconocida se cargaron en $. Valores válidos: $ o 1, USD o 2, DIVISA o 3, EUR o 58.', 'alerta');
-        else mostrarToast('Importación completada: ' + items.length + ' ítem(s).', 'exito');
+        let completados = 0;
+        items.forEach(item => { const tr = agregarFila(item); if (completarDesdeCatalogo(tr)) completados++; });
+        recalcularPresupuestoCompleto(); programarAutosave();
+        const conCodigo = items.some(it => String(it.codigo == null ? '' : it.codigo).trim() !== '');
+        const catalogoVacio = Object.keys(mapaProductosGitHub).length === 0;
+        let aviso = 'Importación completada: ' + items.length + ' ítem(s).';
+        if (completados) aviso += ' Detalle y Marca completados desde el catálogo en ' + completados + ' ítem(s).';
+        if (conCodigo && catalogoVacio) aviso += ' No se pudo consultar el catálogo de productos (¿sin conexión?): Detalle y Marca quedaron sin completar.';
+        if (monedasNoReconocidas) mostrarToast(aviso + ' ' + monedasNoReconocidas + ' fila(s) con moneda no reconocida se cargaron en $. Valores válidos: $ o 1, USD o 2, DIVISA o 3, EUR o 58.', 'alerta');
+        else mostrarToast(aviso, (conCodigo && catalogoVacio) ? 'alerta' : 'exito');
       } catch (err) { mostrarToast(err.message || 'No se pudo leer el archivo.', 'alerta'); }
       finally { event.target.value = ''; }
     }
@@ -1847,7 +1910,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
     }
 
     window.onload = function() {
-      cargarProductosGitHub();
+      promesaCatalogo = cargarProductosGitHub();
       actualizarEstadoRed();
       verificarLibrerias();
       if (!restaurarAutosave()) agregarMultiplesFilas(8);
