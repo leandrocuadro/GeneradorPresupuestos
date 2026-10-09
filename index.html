@@ -184,6 +184,7 @@
       transition: border-color 0.2s;
     }
     .cell-input::placeholder { color: #94a3b8; }
+    .cell-input.desc-negativo { color: #dc2626; font-weight: 600; }
     .cell-input:hover:not(:focus) { border-color: #94a3b8; }
     .cell-input:focus {
       outline: none;
@@ -732,6 +733,83 @@
       }
     }
 
+    /* ---------- Catálogo de clientes (GitHub: clientes.csv, columnas "codigo;nombre") ---------- */
+    let mapaClientesGitHub = {};
+
+    async function cargarClientesGitHub() {
+      const urlCSV = 'https://raw.githubusercontent.com/leandrocuadro/productos.csv/refs/heads/main/clientes.csv';
+      try {
+        const respuesta = await fetch(urlCSV);
+        if (!respuesta.ok) throw new Error('No se pudo descargar el archivo de clientes');
+        // El archivo está guardado en Windows-1252 (Ñ y tildes): decodificarTexto prueba UTF-8 y, si falla, Windows-1252
+        const texto = decodificarTexto(await respuesta.arrayBuffer());
+        const lineas = texto.split(/\r\n|\n|\r/);
+        const encabezados = (lineas[0] || '').split(';').map(e => normalizarEncabezado(e));
+        const idxCodigo = encabezados.indexOf('codigo');
+        const idxNombre = encabezados.indexOf('nombre');
+        if (idxCodigo === -1 || idxNombre === -1) throw new Error("El archivo de clientes no tiene las columnas 'codigo' y 'nombre'");
+
+        const nuevo = {};
+        for (let i = 1; i < lineas.length; i++) {
+          if (!lineas[i].trim()) continue;
+          const col = lineas[i].split(';').map(c => c.replace(/"/g, '').trim());
+          const nombre = (col[idxNombre] || '').replace(/\s+/g, ' ').trim();
+          const clave = claveCliente(col[idxCodigo]);
+          if (clave && nombre) nuevo[clave] = nombre;
+        }
+        mapaClientesGitHub = nuevo;
+        completarClienteSiVacio();
+      } catch (error) {
+        console.error('Error al cargar la base de clientes de GitHub:', error);
+        // Se muestra cuando termina de cargar el catálogo de productos, para que su aviso no lo tape
+        Promise.resolve(promesaCatalogo).catch(() => {}).then(() =>
+          mostrarToast('No se pudo cargar la base de clientes (¿sin conexión?). Podés escribir el nombre a mano.', 'alerta'));
+      }
+    }
+
+    // Normaliza el código de cliente (sin espacios ni ceros a la izquierda)
+    function claveCliente(codigo) {
+      return String(codigo == null ? '' : codigo).trim().replace(/^0+(?=\d)/, '');
+    }
+    function buscarCliente(codigo) {
+      const clave = claveCliente(codigo);
+      return clave ? mapaClientesGitHub[clave] : undefined;
+    }
+
+    // Si el catálogo terminó de cargar después de que el usuario escribió el código, completa el nombre vacío
+    function completarClienteSiVacio() {
+      const inputNro = document.getElementById('metaNroCliente');
+      const inputCli = document.getElementById('metaCliente');
+      if (!inputNro || !inputCli || inputCli.value.trim()) return;
+      const nombre = buscarCliente(inputNro.value);
+      if (nombre) { inputCli.value = nombre; inputCli.dataset.auto = nombre; programarAutosave(); }
+    }
+
+    // Nro. Cliente → Cliente / Empresa
+    function iniciarAutocompletadoCliente() {
+      const inputNro = document.getElementById('metaNroCliente');
+      const inputCli = document.getElementById('metaCliente');
+      inputNro.dataset.prev = inputNro.value.trim();
+      inputNro.addEventListener('input', function () {
+        const codigo = inputNro.value.trim();
+        const nombre = buscarCliente(codigo);
+        if (nombre) {
+          // Código del catálogo: completa el nombre del cliente
+          inputCli.value = nombre;
+          inputCli.dataset.auto = nombre;
+        } else if (!codigo) {
+          // El usuario borró el código: se vacía Cliente / Empresa
+          if (inputNro.dataset.prev) inputCli.value = '';
+          inputCli.dataset.auto = '';
+        } else {
+          // Código sin coincidencia: se quita solo el nombre que se había completado automáticamente
+          if (inputCli.dataset.auto && inputCli.value === inputCli.dataset.auto) inputCli.value = '';
+          inputCli.dataset.auto = '';
+        }
+        inputNro.dataset.prev = codigo;
+      });
+    }
+
     function toggleDropdown(id) {
       document.querySelectorAll('.dropdown-menu').forEach(el => {
         if (el.id !== id) el.classList.remove('dropdown-open');
@@ -932,8 +1010,8 @@
         <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d1" placeholder="0" value="${escaparHTML(datos ? datos.d1 : '')}"></td>
         <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d2" placeholder="0" value="${escaparHTML(datos ? datos.d2 : '')}"></td>
         <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d3" placeholder="0" value="${escaparHTML(datos ? datos.d3 : '')}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${escaparHTML(datos ? datos.d4 : '')}"></td>
-        <td class="p-0.5"><input type="number" step="0.01" min="0" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${escaparHTML(datos ? datos.d5 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="-100" max="100" class="cell-input text-center font-mono col-d4" placeholder="0" value="${escaparHTML(datos ? datos.d4 : '')}"></td>
+        <td class="p-0.5"><input type="number" step="0.01" min="-100" max="100" class="cell-input text-center font-mono col-d5" placeholder="0" value="${escaparHTML(datos ? datos.d5 : '')}"></td>
         <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-costo" value="0.00"></td>
         <td class="p-0.5"><input type="number" step="0.01" min="0" class="cell-input text-center font-mono col-margen" placeholder="0" value="${escaparHTML(datos ? datos.margen : '')}"></td>
         <td class="p-0.5"><input type="text" readonly class="cell-input text-right font-mono cell-readonly col-venta" value="0.00"></td>
@@ -966,11 +1044,12 @@
           const n = parseFloat(inp.value);
           if (inp.value === '' || isNaN(n)) return;
           const esDescuento = /col-d[1-5]/.test(inp.className);
-          const fijo = Math.min(esDescuento ? 100 : Infinity, Math.max(0, n));
+          const minimo = limiteMinimoDescuento(inp);
+          const fijo = Math.min(esDescuento ? 100 : Infinity, Math.max(minimo, n));
           if (fijo !== n) {
             inp.value = fijo;
             calcularFila(tr); calcularTotalesGenerales();
-            mostrarToast(esDescuento ? 'El descuento debe estar entre 0 y 100.' : 'No se admiten valores negativos.', 'alerta');
+            mostrarToast(esDescuento ? 'El descuento debe estar entre ' + minimo + ' y 100.' : 'No se admiten valores negativos.', 'alerta');
           }
         });
       });
@@ -1057,6 +1136,12 @@
       });
     }
 
+    // Solo Descuento 4 y Descuento 5 admiten valores negativos (recargo), hasta -100 %
+    function limiteMinimoDescuento(elOClase) {
+      const clase = typeof elOClase === 'string' ? elOClase : (elOClase.className || '');
+      return /col-d[45]\b/.test(clase) ? -100 : 0;
+    }
+
     function leerNumero(el, min = 0, max = Infinity) {
       const n = parseFloat(el.value);
       return isNaN(n) ? 0 : Math.min(max, Math.max(min, n));
@@ -1085,7 +1170,11 @@
 
       let costoNetoUnit = precioLista;
       ['.col-d1', '.col-d2', '.col-d3', '.col-d4', '.col-d5'].forEach(sel => {
-        costoNetoUnit *= (1 - leerNumero(tr.querySelector(sel), 0, 100) / 100);
+        const el = tr.querySelector(sel);
+        const d = leerNumero(el, limiteMinimoDescuento(sel), 100);
+        // Descuento negativo en Desc 4 / Desc 5: tipografía roja
+        if (sel === '.col-d4' || sel === '.col-d5') el.classList.toggle('desc-negativo', d < 0);
+        costoNetoUnit *= (1 - d / 100);
       });
       const margen = leerNumero(tr.querySelector('.col-margen'));
 
@@ -1133,6 +1222,13 @@
       if (valor === '' || (!esTexto && isNaN(parseFloat(valor)))) {
         mostrarToast("Ingresá un valor válido.", "alerta");
         return;
+      }
+      if (/^col-d[1-5]$/.test(campo)) {
+        const minimo = limiteMinimoDescuento(campo), n = parseFloat(valor);
+        if (n < minimo || n > 100) {
+          mostrarToast('El descuento debe estar entre ' + minimo + ' y 100.', 'alerta');
+          return;
+        }
       }
 
       const filas = document.querySelectorAll('#tbodyPresupuesto tr');
@@ -1708,6 +1804,11 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
             }
           });
           ['cantidad','precio','d1','d2','d3','d4','d5','margen'].forEach(k => { if (item[k] !== undefined) item[k] = normalizarNumero(item[k]); });
+          // Descuentos dentro de su rango (Desc 4 y 5 admiten negativos hasta -100)
+          ['d1','d2','d3','d4','d5'].forEach(k => {
+            const n = parseFloat(item[k]);
+            if (item[k] !== undefined && item[k] !== '' && !isNaN(n)) item[k] = Math.min(100, Math.max(limiteMinimoDescuento('col-' + k), n));
+          });
           if (item.cantidad === '' || item.cantidad === undefined) item.cantidad = 1;
           if (item.monedaFila !== undefined && String(item.monedaFila).trim() !== '') {
             const reconocida = reconocerMoneda(item.monedaFila);
@@ -1786,6 +1887,8 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       poner('metaTCBNA', m.tipoCambioBNA);
       poner('metaTCDivisa', m.tipoCambioDivisa);
       poner('metaTCEUR', m.tipoCambioEUR);
+      // Al restaurar un presupuesto, el código restaurado cuenta como "código previo" (para vaciar el cliente si se borra)
+      document.getElementById('metaNroCliente').dataset.prev = document.getElementById('metaNroCliente').value.trim();
 
       // Sincroniza las variables internas (moneda y cotizaciones) ANTES de crear las filas
       monedaActual = document.getElementById('metaMoneda').value;
@@ -1911,6 +2014,8 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
 
     window.onload = function() {
       promesaCatalogo = cargarProductosGitHub();
+      iniciarAutocompletadoCliente();
+      cargarClientesGitHub();
       actualizarEstadoRed();
       verificarLibrerias();
       if (!restaurarAutosave()) agregarMultiplesFilas(8);
