@@ -1,0 +1,75 @@
+GENERADOR DE PRESUPUESTOS - HISTORIAL DE VERSIONES
+===================================================
+
+Criterio de numeración: MAYOR.MENOR
+  - Cada entrega con cambios sube el número menor (2.5 -> 2.6 -> 2.7 ...).
+  - Al pasar de 2.9 la siguiente versión es 3.0.
+  - La versión vigente se muestra en el encabezado de la aplicación
+    ("Generador de Presupuestos vX.Y").
+  - Las versiones más nuevas figuran primero.
+
+
+VERSIÓN 2.9 - 10/10/2026 - Clientes obligatorios y sugerencias de tipeo
+-----------------------------------------------------------------------
+- "Nro. Cliente" y "Cliente / Empresa" pasan a ser campos obligatorios
+  (marcados con asterisco; si faltan o no son válidos se resaltan en rojo con un aviso).
+- Ambos campos se validan contra la base maestra de clientes (clientes.csv de GitHub),
+  para estandarizar la carga de datos.
+- Nuevo: sugerencias de tipeo en "Cliente / Empresa". Ej.: al escribir "Ter" se ofrece
+  TERNIUM ARGENTINA S.A. Se elige con Enter, Tab o clic; las flechas mueven la selección
+  y Esc cierra la lista. La búsqueda ignora mayúsculas y tildes.
+- Al elegir una sugerencia se completan el nombre y el Nro. Cliente. Si el nombre está
+  repetido en la base, la lista muestra cada Nro. para que se elija el correcto.
+- Si el nombre escrito coincide con un único cliente de la base y no hay Nro. Cliente,
+  se completa el Nro. al salir del campo. Un Nro. ya escrito nunca se cambia en silencio.
+- Exportar PDF y exportar CSV quedan bloqueados mientras falten los datos del cliente o
+  no coincidan con la base (con aviso y foco en el campo a corregir).
+  El respaldo JSON y el autoguardado no se bloquean.
+- Sin conexión (base de clientes no disponible): solo se exige que los campos no estén vacíos.
+- Cliente nuevo que no está en la base: no se puede exportar hasta agregarlo a clientes.csv.
+
+
+VERSIÓN 2.8 - 08/10/2026 - Conexión con la base de clientes
+-----------------------------------------------------------
+- Conexión con clientes.csv (GitHub): al escribir el Nro. Cliente se completa
+  automáticamente "Cliente / Empresa" con el nombre de la base.
+- Al borrar el Nro. Cliente se vacía "Cliente / Empresa" (sin persistencia del dato anterior).
+  Si el código deja de coincidir, solo se quita el nombre que se había completado solo;
+  un nombre escrito a mano se conserva.
+- Lectura correcta de la Ñ y las tildes (el archivo está guardado en Windows-1252).
+- Si el código se escribe antes de que termine de cargar la base, el nombre se completa
+  apenas termina de cargar.
+- Sin conexión: aviso en pantalla y se puede escribir el nombre a mano.
+
+
+VERSIÓN 2.7 - 08/10/2026 - Descuentos 4 y 5 con valores negativos
+-----------------------------------------------------------------
+- "Desc 4 %" y "Desc 5 %" (columnas 11 y 12) admiten descuentos negativos
+  (funcionan como recargo), con un mínimo de -100 %. Desc 1, 2 y 3 siguen entre 0 y 100.
+- Si el valor es negativo, el texto se muestra en rojo y negrita.
+- Reemplazo Global: valida el rango según el campo (negativos solo en Desc 4 y Desc 5).
+- Importación: los descuentos fuera de rango se ajustan a su límite al cargar.
+- Cálculos verificados contra un cálculo independiente (por fila, en pesos, dólar BNA,
+  dólar divisa y euro, totales, tarjetas de resumen, CSV, PDF y respaldo).
+
+
+VERSIÓN 2.6 - 08/10/2026 - Importación, PDF y exportación CSV
+-------------------------------------------------------------
+- Importación desde Excel/CSV: ahora completa "Detalle" y "Marca" a partir del catálogo
+  de productos según el código (no pisa lo que el archivo ya trae). Espera a que el catálogo
+  termine de cargar y avisa si no se pudo consultar.
+- Al borrar un código se vacían "Detalle" y "Marca" (sin persistencia del dato anterior).
+- PDF: se agrega la columna "Observaciones".
+- PDF: el encabezado queda solo con "Propuesta económica" (se quitó "Presupuesto comercial").
+- Exportación CSV: Precio Lista, Costo Neto, Precio Venta y Total salen en formato moneda
+  con 2 decimales (ej. $ 1.234,50), con la moneda correspondiente. El CSV exportado
+  se puede volver a importar.
+
+
+VERSIÓN 2.5 - Versión base (punto de partida de este historial)
+---------------------------------------------------------------
+- Estado de la aplicación antes de las mejoras registradas en este archivo.
+- Incluye: cálculo de costos con 5 descuentos en cascada y margen, precios en pesos,
+  dólar BNA, dólar divisa y euro, memo por ítem, reemplazo global, filtros,
+  importación Excel/CSV, exportación a PDF y CSV, respaldo JSON, autoguardado,
+  catálogo de productos desde GitHub y leyenda de IVA en el PDF.

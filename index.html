@@ -218,6 +218,24 @@
       transition: border-color 0.2s;
     }
     .win-input-group:hover:not(:focus) { border-color: #94a3b8; }
+
+    /* Campos de cliente: obligatorios y con sugerencias de tipeo */
+    .win-input-group.campo-invalido { border-color: #dc2626; background-color: #fef2f2; box-shadow: 0 0 0 1px #dc2626; }
+    .ayuda-campo { font-size: 10.5px; line-height: 1.25; color: #dc2626; margin-top: 3px; font-weight: 500; }
+    .ayuda-campo[hidden] { display: none; }
+    .sugerencias-cliente {
+      display: none; position: absolute; left: 0; top: calc(100% + 2px); z-index: 60;
+      min-width: 100%; width: max-content; max-width: min(460px, 88vw); max-height: 280px; overflow-y: auto;
+      background: #ffffff; border: 1px solid #94a3b8; border-radius: 4px; box-shadow: 0 8px 22px rgba(15, 23, 42, .22);
+    }
+    .sugerencias-cliente.abierta { display: block; }
+    .sugerencia-item { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 6px 10px; font-size: 0.8125rem; color: #0f172a; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+    .sugerencia-item:last-child { border-bottom: none; }
+    .sugerencia-item[aria-selected="true"], .sugerencia-item:hover { background: #dbeafe; }
+    .sugerencia-item .sug-cod { font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: #64748b; flex-shrink: 0; }
+    .sugerencia-item mark { background: transparent; color: var(--primary); font-weight: 700; }
+    .sugerencias-pie { padding: 4px 10px; font-size: 10.5px; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; position: sticky; bottom: 0; }
+    @media print { .sugerencias-cliente, .ayuda-campo { display: none !important; } }
     .win-input-group:focus {
       outline: none;
       border-color: var(--primary);
@@ -334,7 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span class="font-semibold text-gray-300">Generador de Presupuestos v2.5</span>
+        <span class="font-semibold text-gray-300">Generador de Presupuestos v2.9</span>
         <span class="text-gray-600">|</span>
         <span class="text-gray-400">Edición Local Windows</span>
       </div>
@@ -415,12 +433,17 @@
 
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div>
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Nro. Cliente</label>
-          <input type="text" id="metaNroCliente" inputmode="numeric" autocomplete="off" placeholder="Ej: 10234" oninput="this.value = this.value.replace(/\D/g, '')" class="win-input-group font-mono">
+          <label for="metaNroCliente" class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Nro. Cliente <span class="text-red-600" title="Obligatorio">*</span></label>
+          <input type="text" id="metaNroCliente" inputmode="numeric" autocomplete="off" placeholder="Ej: 10234" oninput="this.value = this.value.replace(/\D/g, '')" class="win-input-group font-mono" required aria-required="true" aria-describedby="ayudaNroCliente">
+          <p id="ayudaNroCliente" class="ayuda-campo" role="alert" hidden></p>
         </div>
         <div>
-          <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Cliente / Empresa</label>
-          <input type="text" id="metaCliente" placeholder="Ej: Distribuidora Lopez S.A." class="win-input-group">
+          <label for="metaCliente" class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Cliente / Empresa <span class="text-red-600" title="Obligatorio">*</span></label>
+          <div style="position:relative">
+            <input type="text" id="metaCliente" placeholder="Escribí para buscar: Ej: Ter..." autocomplete="off" spellcheck="false" class="win-input-group" required aria-required="true" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="listaClientes" aria-describedby="ayudaCliente">
+            <div id="listaClientes" class="sugerencias-cliente no-print" role="listbox" aria-label="Clientes sugeridos"></div>
+          </div>
+          <p id="ayudaCliente" class="ayuda-campo" role="alert" hidden></p>
         </div>
         <div>
           <label class="block text-[11px] font-semibold text-gray-600 uppercase tracking-wider mb-1">Nº Presupuesto</label>
@@ -758,7 +781,9 @@
           if (clave && nombre) nuevo[clave] = nombre;
         }
         mapaClientesGitHub = nuevo;
+        construirIndiceClientes(nuevo);
         completarClienteSiVacio();
+        pintarEstadoCliente();
       } catch (error) {
         console.error('Error al cargar la base de clientes de GitHub:', error);
         // Se muestra cuando termina de cargar el catálogo de productos, para que su aviso no lo tape
@@ -807,6 +832,222 @@
           inputCli.dataset.auto = '';
         }
         inputNro.dataset.prev = codigo;
+        pintarEstadoCliente();
+      });
+      inputNro.addEventListener('blur', () => { clienteTocado.nro = true; pintarEstadoCliente(); });
+      iniciarSugerenciasCliente();
+    }
+
+    /* ---------- Cliente / Empresa: obligatorio, con sugerencias de tipeo y validado contra la base maestra ---------- */
+    let indiceClientes = [];                 // [{ codigo, nombre, norm }] ordenado por nombre
+    let indicePorNombre = new Map();         // nombre normalizado -> [items]
+    const clienteTocado = { nro: false, cli: false };   // los avisos de error se muestran recién después de pasar por el campo
+    let sugerencias = [], sugActiva = -1;
+
+    // Minúsculas, sin tildes y con espacios simples: "  Compañía  S.A." -> "compania s.a."
+    function normalizarNombre(txt) {
+      return String(txt == null ? '' : txt).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+
+    function construirIndiceClientes(mapa) {
+      indiceClientes = Object.keys(mapa).map(codigo => ({ codigo, nombre: mapa[codigo], norm: normalizarNombre(mapa[codigo]) }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+      indicePorNombre = new Map();
+      indiceClientes.forEach(it => {
+        if (!indicePorNombre.has(it.norm)) indicePorNombre.set(it.norm, []);
+        indicePorNombre.get(it.norm).push(it);
+      });
+    }
+
+    // Sugerencias para lo tipeado: primero los que empiezan igual, luego los que tienen una palabra que empieza igual, luego los que lo contienen
+    function sugerirClientes(texto, max = 12) {
+      const q = normalizarNombre(texto);
+      if (q.length < 2) return { items: [], total: 0 };
+      const empieza = [], palabra = [], contiene = [];
+      for (const it of indiceClientes) {
+        if (it.norm.startsWith(q)) empieza.push(it);
+        else if ((' ' + it.norm).includes(' ' + q)) palabra.push(it);
+        else if (it.norm.includes(q)) contiene.push(it);
+      }
+      // Las coincidencias "en medio de una palabra" (inTERNacional) solo se ofrecen si no hay ninguna que empiece igual
+      const todos = (empieza.length + palabra.length > 0) ? empieza.concat(palabra) : contiene;
+      return { items: todos.slice(0, max), total: todos.length };
+    }
+
+    function dibujarSugerencias(texto, total) {
+      const lista = document.getElementById('listaClientes');
+      const inputCli = document.getElementById('metaCliente');
+      lista.textContent = '';
+      const q = normalizarNombre(texto);
+      sugerencias.forEach((it, i) => {
+        const fila = document.createElement('div');
+        fila.className = 'sugerencia-item';
+        fila.id = 'sug-cli-' + i;
+        fila.setAttribute('role', 'option');
+        fila.setAttribute('aria-selected', i === sugActiva ? 'true' : 'false');
+        const nombre = document.createElement('span');
+        const pos = it.norm.length === it.nombre.length ? it.norm.indexOf(q) : -1;   // resalta lo tipeado
+        if (pos >= 0 && q) {
+          nombre.append(it.nombre.slice(0, pos));
+          const m = document.createElement('mark'); m.textContent = it.nombre.slice(pos, pos + q.length); nombre.append(m);
+          nombre.append(it.nombre.slice(pos + q.length));
+        } else nombre.textContent = it.nombre;
+        const cod = document.createElement('span'); cod.className = 'sug-cod'; cod.textContent = 'N° ' + it.codigo;
+        fila.append(nombre, cod);
+        // mousedown (y no click) para elegir antes de que el campo pierda el foco
+        fila.addEventListener('mousedown', ev => { ev.preventDefault(); seleccionarCliente(it); });
+        lista.appendChild(fila);
+      });
+      if (total > sugerencias.length) {
+        const pie = document.createElement('div');
+        pie.className = 'sugerencias-pie';
+        pie.textContent = 'Hay ' + (total - sugerencias.length) + ' coincidencia(s) más: seguí escribiendo para acotar.';
+        lista.appendChild(pie);
+      }
+      lista.classList.add('abierta');
+      inputCli.setAttribute('aria-expanded', 'true');
+      if (sugActiva >= 0) inputCli.setAttribute('aria-activedescendant', 'sug-cli-' + sugActiva);
+    }
+
+    function cerrarSugerencias() {
+      const inputCli = document.getElementById('metaCliente');
+      const lista = document.getElementById('listaClientes');
+      lista.classList.remove('abierta');
+      lista.textContent = '';
+      inputCli.setAttribute('aria-expanded', 'false');
+      inputCli.removeAttribute('aria-activedescendant');
+      sugerencias = []; sugActiva = -1;
+    }
+
+    function moverSugerencia(delta) {
+      if (!sugerencias.length) return;
+      sugActiva = (sugActiva + delta + sugerencias.length) % sugerencias.length;
+      document.querySelectorAll('#listaClientes .sugerencia-item').forEach((el, i) => el.setAttribute('aria-selected', i === sugActiva ? 'true' : 'false'));
+      const activo = document.getElementById('sug-cli-' + sugActiva);
+      document.getElementById('metaCliente').setAttribute('aria-activedescendant', 'sug-cli-' + sugActiva);
+      if (activo && activo.scrollIntoView) activo.scrollIntoView({ block: 'nearest' });
+    }
+
+    // Elegir un cliente de la base maestra: completa Nro. Cliente y Cliente / Empresa
+    function seleccionarCliente(it) {
+      const inputNro = document.getElementById('metaNroCliente');
+      const inputCli = document.getElementById('metaCliente');
+      inputNro.value = it.codigo;
+      inputNro.dataset.prev = it.codigo;
+      inputCli.value = it.nombre;
+      inputCli.dataset.auto = it.nombre;
+      clienteTocado.nro = clienteTocado.cli = true;
+      cerrarSugerencias();
+      pintarEstadoCliente();
+      programarAutosave();
+    }
+
+    // Si lo escrito coincide exactamente con un único cliente de la base, lo toma (corrige mayúsculas/tildes y completa el Nro.)
+    function resolverNombreEscrito() {
+      const inputNro = document.getElementById('metaNroCliente');
+      const inputCli = document.getElementById('metaCliente');
+      const texto = normalizarNombre(inputCli.value);
+      if (!texto) return;
+      if (inputNro.value.trim()) {
+        // Ya hay Nro. Cliente: nunca se lo cambia. Solo se corrigen mayúsculas/tildes si el nombre corresponde a ese Nro.
+        const oficial = buscarCliente(inputNro.value);
+        if (oficial && normalizarNombre(oficial) === texto && inputCli.value !== oficial) {
+          inputCli.value = oficial; inputCli.dataset.auto = oficial; programarAutosave();
+        }
+        return;
+      }
+      // Sin Nro. Cliente: si el nombre escrito identifica a un único cliente de la base, se completa el Nro.
+      // (si el nombre está repetido en la base, debe elegirlo de la lista)
+      const candidatos = indicePorNombre.get(texto);
+      if (candidatos && candidatos.length === 1) seleccionarCliente(candidatos[0]);
+    }
+
+    // Estado de validez de los dos campos (solo se valida contra la base cuando ésta está cargada)
+    function estadoCliente() {
+      const nro = document.getElementById('metaNroCliente').value.trim();
+      const nom = document.getElementById('metaCliente').value.trim();
+      const hayBase = indiceClientes.length > 0;
+      let errNro = '', errCli = '';
+      if (!nro) errNro = 'Obligatorio.';
+      else if (hayBase && !buscarCliente(nro)) errNro = 'Este N° no figura en la base de clientes.';
+      if (!nom) errCli = 'Obligatorio.';
+      else if (hayBase) {
+        const oficial = buscarCliente(nro);
+        const coincide = oficial ? normalizarNombre(oficial) === normalizarNombre(nom) : indicePorNombre.has(normalizarNombre(nom));
+        if (!coincide) errCli = oficial ? 'No coincide con el N° ' + nro + ' (' + oficial + '). Elegí uno de la lista.' : 'Elegí un cliente de la lista de sugerencias.';
+      }
+      return { errNro, errCli };
+    }
+
+    function pintarEstadoCliente() {
+      const { errNro, errCli } = estadoCliente();
+      [['metaNroCliente', 'ayudaNroCliente', clienteTocado.nro ? errNro : ''], ['metaCliente', 'ayudaCliente', clienteTocado.cli ? errCli : '']].forEach(([idCampo, idAyuda, msg]) => {
+        const campo = document.getElementById(idCampo), ayuda = document.getElementById(idAyuda);
+        if (!campo || !ayuda) return;
+        campo.classList.toggle('campo-invalido', !!msg);
+        campo.setAttribute('aria-invalid', msg ? 'true' : 'false');
+        ayuda.textContent = msg;
+        ayuda.hidden = !msg;
+      });
+    }
+
+    // Se llama al exportar (PDF / CSV): ambos campos deben estar completos y coincidir con la base maestra
+    function validarClienteObligatorio() {
+      const inputNro = document.getElementById('metaNroCliente');
+      const inputCli = document.getElementById('metaCliente');
+      cerrarSugerencias();
+      // Código válido con el nombre vacío: se completa solo
+      if (!inputCli.value.trim()) {
+        const oficial = buscarCliente(inputNro.value);
+        if (oficial) { inputCli.value = oficial; inputCli.dataset.auto = oficial; }
+      }
+      resolverNombreEscrito();
+      clienteTocado.nro = clienteTocado.cli = true;
+      pintarEstadoCliente();
+      const { errNro, errCli } = estadoCliente();
+      if (!errNro && !errCli) return true;
+      (errNro ? inputNro : inputCli).focus();
+      const mensaje = (errNro === 'Obligatorio.' && errCli === 'Obligatorio.')
+        ? 'Completá Nro. Cliente y Cliente / Empresa antes de exportar.'
+        : errNro ? 'Nro. Cliente: ' + errNro : 'Cliente / Empresa: ' + errCli;
+      mostrarToast(mensaje, 'alerta');
+      return false;
+    }
+
+    function iniciarSugerenciasCliente() {
+      const inputCli = document.getElementById('metaCliente');
+      inputCli.addEventListener('input', () => {
+        const r = sugerirClientes(inputCli.value);
+        sugerencias = r.items; sugActiva = sugerencias.length ? 0 : -1;
+        if (sugerencias.length) dibujarSugerencias(inputCli.value, r.total); else cerrarSugerencias();
+        pintarEstadoCliente();
+      });
+      inputCli.addEventListener('keydown', ev => {
+        const abierta = document.getElementById('listaClientes').classList.contains('abierta');
+        if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+          if (!abierta) {
+            const r = sugerirClientes(inputCli.value);
+            if (!r.items.length) return;
+            sugerencias = r.items; sugActiva = -1; dibujarSugerencias(inputCli.value, r.total);
+          }
+          ev.preventDefault();
+          moverSugerencia(ev.key === 'ArrowDown' ? 1 : -1);
+        } else if (ev.key === 'Enter' && abierta && sugActiva >= 0) {
+          ev.preventDefault();
+          seleccionarCliente(sugerencias[sugActiva]);
+        } else if (ev.key === 'Tab' && abierta && sugActiva >= 0) {
+          // Tab acepta la sugerencia resaltada (salvo que lo escrito ya sea exactamente ese cliente)
+          if (normalizarNombre(inputCli.value) !== sugerencias[sugActiva].norm) seleccionarCliente(sugerencias[sugActiva]);
+          else cerrarSugerencias();
+        } else if (ev.key === 'Escape' && abierta) {
+          ev.preventDefault(); cerrarSugerencias();
+        }
+      });
+      inputCli.addEventListener('blur', () => {
+        cerrarSugerencias();
+        resolverNombreEscrito();
+        clienteTocado.cli = true;
+        pintarEstadoCliente();
       });
     }
 
@@ -1406,6 +1647,7 @@
     }
     function exportarCSV() {
       cerrarDropdowns();
+      if (!validarClienteObligatorio()) return;
       const columnas = [
         ['Ítem', '.col-nroitem'], ['Cantidad', '.col-cantidad'], ['Código', '.col-codigo'],
         ['Detalle Artículo', '.col-detalle'], ['Marca', '.col-marca'], ['Solicitud Cliente', '.col-solicitud'], ['Observaciones', '.col-obs'],
@@ -1605,6 +1847,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
 
     function exportarPDF() {
       cerrarDropdowns();
+      if (!validarClienteObligatorio()) return;
       const trsPDF = Array.from(document.querySelectorAll('#tbodyPresupuesto tr')).filter(tr => !filaVacia(tr));
       if (!trsPDF.length) {
         mostrarToast('No hay ítems cargados para exportar.', 'alerta');
@@ -1889,6 +2132,8 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       poner('metaTCEUR', m.tipoCambioEUR);
       // Al restaurar un presupuesto, el código restaurado cuenta como "código previo" (para vaciar el cliente si se borra)
       document.getElementById('metaNroCliente').dataset.prev = document.getElementById('metaNroCliente').value.trim();
+      clienteTocado.nro = clienteTocado.cli = false;   // sin avisos de error hasta que el usuario pase por los campos o exporte
+      pintarEstadoCliente();
 
       // Sincroniza las variables internas (moneda y cotizaciones) ANTES de crear las filas
       monedaActual = document.getElementById('metaMoneda').value;
