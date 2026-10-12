@@ -3,36 +3,10 @@ GENERADOR DE PRESUPUESTOS - HISTORIAL DE VERSIONES
 
 Criterio de numeración: MAYOR.MENOR
   - Cada entrega con cambios sube el número menor (2.5 -> 2.6 -> 2.7 ...).
-  - Al pasar de 2.9 la siguiente versión es 3.0 (2.9 -> 3.0 -> 3.1 ...).
+  - Al pasar de 2.9 la siguiente versión es 3.0.
   - La versión vigente se muestra en el encabezado de la aplicación
     ("Generador de Presupuestos vX.Y").
   - Las versiones más nuevas figuran primero.
-
-
-VERSIÓN 3.0 - 12/10/2026 - Exportación a Excel (.xlsx) con formato profesional
--------------------------------------------------------------------------------
-- Nuevo botón "Exportar Excel (.xlsx)" en el menú Exportar. El CSV se mantiene
-  como "Exportar CSV (datos simples)".
-- Vista profesional y formal: banner de título "Propuesta económica", bloque con los
-  datos del presupuesto (cliente, N°, vigencia, moneda, cotizaciones, leyenda de IVA),
-  encabezados oscuros, filas alternadas, líneas finas, sin cuadrícula.
-- Columnas auto-ajustadas al contenido (con un tope en textos largos, que se ajustan
-  en varias líneas con la altura de fila adecuada).
-- Formato moneda con 2 decimales en Precio Lista (con la moneda de cada fila: $, U$S,
-  U$S Div., €), Costo Neto, Precio Venta y Total (en la moneda del presupuesto).
-  Los encabezados de importes calculados indican la moneda, ej. "Costo Neto Unit. ($)".
-- Descuentos y Margen en formato porcentaje; los negativos se ven en rojo.
-- Columnas "Costo Neto Unit." y "Precio Venta Unit." destacadas: negrita y fondo verde suave.
-- Fila "TOTAL DEL PRESUPUESTO" con suma real (fórmula de Excel), notas al pie
-  (moneda, IVA, fecha de generación).
-- Encabezado inmovilizado, filtros automáticos y listo para imprimir: A4 horizontal,
-  1 página de ancho, encabezado repetido y pie "Presupuesto N° / Página X de Y".
-- Los textos que parecen fórmulas (=, +, @) se guardan como texto (seguridad).
-- Importación: el archivo exportado se puede volver a importar. Se usa la hoja
-  "Presupuesto" (si existe) y se ignoran el bloque de título, la fila de totales y las notas.
-- Mismas reglas que PDF/CSV: se bloquea si faltan los datos del cliente.
-- Nota: la biblioteca de Excel se descarga de internet al abrir la app; sin conexión
-  se avisa y el resto de la aplicación sigue funcionando.
 
 
 VERSIÓN 2.9 - 10/10/2026 - Clientes obligatorios y sugerencias de tipeo
