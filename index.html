@@ -352,7 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span class="font-semibold text-gray-300">Generador de Presupuestos v2.9</span>
+        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.0</span>
         <span class="text-gray-600">|</span>
         <span class="text-gray-400">Edición Local Windows</span>
       </div>
@@ -412,8 +412,11 @@
             <button type="button" onclick="exportarPDF()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
               <i class="fa-solid fa-file-pdf text-red-600 w-4 text-center"></i> Exportar PDF
             </button>
+            <button type="button" onclick="exportarExcel()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
+              <i class="fa-solid fa-file-excel text-emerald-700 w-4 text-center"></i> Exportar Excel (.xlsx)
+            </button>
             <button type="button" onclick="exportarCSV()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
-              <i class="fa-solid fa-file-csv text-emerald-600 w-4 text-center"></i> Exportar CSV
+              <i class="fa-solid fa-file-csv text-emerald-600 w-4 text-center"></i> Exportar CSV (datos simples)
             </button>
           </div>
         </div>
@@ -1692,6 +1695,314 @@
       mostrarToast('Archivo CSV exportado (' + exportadas + ' ítem(s)).' + notaFiltros(), 'exito');
     }
     /* ============================================================
+       EXPORTACIÓN A EXCEL (.xlsx) — planilla con formato profesional
+       Usa ExcelJS (permite estilos, formatos de número, anchos y filtros).
+       Los encabezados de las columnas editables coinciden con los de la
+       importación, de modo que la planilla exportada se puede volver a importar.
+       ============================================================ */
+    const EXCEL_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    const EXCEL_C = {
+      marino: 'FF14263F', azul: 'FF2563EB', encabezado: 'FF1E3A5F', texto: 'FF1E293B', suave: 'FF64748B',
+      borde: 'FFCBD5E1', bordeFuerte: 'FF94A3B8', zebra: 'FFF5F8FC', meta: 'FFF1F5F9', total: 'FFE2EAF4', blanco: 'FFFFFFFF',
+      verdeFondo: 'FFE3F3E8', verdeTexto: 'FF14532D', verdeCab: 'FF2E7D4F'
+    };
+    let promesaExcelJS = null;
+
+    // Carga ExcelJS la primera vez que se necesita (no demora el arranque de la aplicación)
+    function cargarExcelJS() {
+      if (window.ExcelJS) return Promise.resolve();
+      if (!promesaExcelJS) {
+        promesaExcelJS = new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+          s.onload = () => resolve();
+          s.onerror = () => { promesaExcelJS = null; s.remove(); reject(new Error('No se pudo cargar la biblioteca de Excel.')); };
+          document.head.appendChild(s);
+        });
+      }
+      return promesaExcelJS;
+    }
+
+    // Formatos de número de Excel (Excel los muestra con los separadores del idioma del usuario: 1.234,50)
+    function formatoMonedaExcel(simbolo) {
+      const s = '"' + String(simbolo).replace(/"/g, '') + '"';
+      return s + ' #,##0.00;[Red]-' + s + ' #,##0.00';
+    }
+    const FORMATO_PORCENTAJE_EXCEL = '0.00" %";[Red]-0.00" %"';
+
+    function letraColumnaExcel(n) {
+      let s = '';
+      while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+      return s;
+    }
+
+    async function exportarExcel() {
+      cerrarDropdowns();
+      if (!validarClienteObligatorio()) return;
+      const trs = Array.from(document.querySelectorAll('#tbodyPresupuesto tr')).filter(tr => {
+        const v = sel => (tr.querySelector(sel)?.value || '').trim();
+        return v('.col-codigo') || v('.col-detalle') || v('.col-precio') || (tr.dataset.memo || '').trim();
+      });
+      if (!trs.length) { mostrarToast('No hay ítems cargados para exportar.', 'alerta'); return; }
+      try {
+        await cargarExcelJS();
+        const buffer = await generarLibroExcel(trs);
+        descargarArchivo(nombreBaseArchivo() + '.xlsx', buffer, EXCEL_MIME);
+        mostrarToast('Archivo Excel exportado (' + trs.length + ' ítem(s)).' + notaFiltros(), 'exito');
+      } catch (err) {
+        console.error('Error al generar el Excel:', err);
+        mostrarToast(/biblioteca/i.test(err && err.message || '')
+          ? 'No se pudo cargar la biblioteca de Excel. Revisá tu conexión a internet y volvé a intentar.'
+          : 'No se pudo generar el archivo Excel. Probá de nuevo o usá la exportación CSV.', 'alerta');
+      }
+    }
+
+    async function generarLibroExcel(trs) {
+      const C = EXCEL_C;
+      recalcularPresupuestoCompleto();   // garantiza que costos y totales estén al día
+
+      const simbolo = obtenerSimboloMoneda(monedaActual);
+      const fmtImporte = formatoMonedaExcel(simbolo);
+      const nombreMoneda = { '$': 'Pesos argentinos (ARS)', USD: 'Dólares estadounidenses (BNA)', DIVISA: 'Dólares divisa', EUR: 'Euros (EUR)' }[monedaActual] || monedaActual;
+      const monedaTxt = { '$': 'Pesos', USD: 'U$S BNA', DIVISA: 'U$S Divisa', EUR: 'Euro' };   // reconocidos por la importación
+      const limpiarTxt = s => String(s == null ? '' : s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').slice(0, 32000);
+      const num = v => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+      const entero = n => Number.isFinite(n) && Math.floor(n) === n;
+      const mostrarNum = n => formatoNumeroAR(n);
+
+      const nroCliente = document.getElementById('metaNroCliente').value.trim();
+      const cliente = document.getElementById('metaCliente').value.trim();
+      const numero = document.getElementById('metaNumero').value.trim();
+      const fechaRaw = document.getElementById('metaFecha').value;
+      const vigencia = fechaRaw ? new Date(fechaRaw + 'T00:00:00').toLocaleDateString('es-AR') : '—';
+      const leyendaIVA = { excluye: 'Los precios no incluyen IVA.', incluye: 'Los precios incluyen IVA.' }[document.getElementById('metaIVA').value] || '';
+      const cotizaciones = 'Dólar BNA $ ' + mostrarNum(tipoCambioBNA) + '  ·  Divisa $ ' + mostrarNum(tipoCambioDivisa) + '  ·  Euro $ ' + mostrarNum(tipoCambioEUR);
+      const version = ((document.getElementById('etiquetaVersion') || {}).textContent || '').match(/v\d+(\.\d+)*/);
+      const ahora = new Date();
+
+      // ---- Columnas: mismos encabezados que la exportación CSV / importación ----
+      const cols = [
+        { t: 'Ítem', tipo: 'item', al: 'center', min: 7, max: 12 },
+        { t: 'Cantidad', tipo: 'cantidad', al: 'center', min: 10, max: 14 },
+        { t: 'Código', tipo: 'codigo', al: 'left', min: 13, max: 24 },
+        { t: 'Detalle Artículo', tipo: 'texto', al: 'left', min: 30, max: 60 },
+        { t: 'Marca', tipo: 'texto', al: 'left', min: 12, max: 26 },
+        { t: 'Solicitud Cliente', tipo: 'texto', al: 'left', min: 16, max: 38 },
+        { t: 'Observaciones', tipo: 'texto', al: 'left', min: 16, max: 38 },
+        { t: 'Precio Lista', tipo: 'importeFila', al: 'right', min: 15 },
+        { t: 'Moneda Costo', tipo: 'moneda', al: 'center', min: 13 },
+        { t: 'Descuento 1 %', tipo: 'porcentaje', al: 'right', min: 14 },
+        { t: 'Descuento 2 %', tipo: 'porcentaje', al: 'right', min: 14 },
+        { t: 'Descuento 3 %', tipo: 'porcentaje', al: 'right', min: 14 },
+        { t: 'Descuento 4 %', tipo: 'porcentaje', al: 'right', min: 14 },
+        { t: 'Descuento 5 %', tipo: 'porcentaje', al: 'right', min: 14 },
+        { t: 'Costo Neto Unit.', tipo: 'importe', al: 'right', min: 16, destacada: true, leyenda: true },
+        { t: 'Margen %', tipo: 'porcentaje', al: 'right', min: 11 },
+        { t: 'Precio Venta Unit.', tipo: 'importe', al: 'right', min: 16, destacada: true, leyenda: true },
+        { t: 'Total Precio Venta', tipo: 'importe', al: 'right', min: 17, leyenda: true },
+        { t: 'Proveedor', tipo: 'texto', al: 'left', min: 12, max: 26 },
+        { t: 'Código Cliente A', tipo: 'codigo', al: 'left', min: 16, max: 24 },
+        { t: 'Código Cliente B', tipo: 'codigo', al: 'left', min: 16, max: 24 },
+        { t: 'Memo', tipo: 'texto', al: 'left', min: 20, max: 60 }
+      ];
+      const N = cols.length;
+      const IDX_TOTAL = cols.findIndex(c => c.t === 'Total Precio Venta') + 1;
+
+      // ---- Datos de cada ítem ----
+      const celdaTexto = s => { s = limpiarTxt(s).trim(); return s === '' ? { v: null, len: 0 } : { v: s, len: s.length }; };
+      const celdaCodigo = s => {
+        s = limpiarTxt(s).trim();
+        if (s === '') return { v: null, len: 0 };
+        // Códigos solo numéricos (sin ceros a la izquierda) como número: evita el aviso "número almacenado como texto"
+        if (/^[1-9]\d{0,14}$/.test(s)) return { v: Number(s), f: '0', len: s.length };
+        return { v: s, len: s.length };
+      };
+      const filas = trs.map(tr => {
+        const val = sel => (tr.querySelector(sel)?.value ?? '');
+        const monedaFila = tr.querySelector('.col-monedafila')?.value || '$';
+        const margen = leerNumero(tr.querySelector('.col-margen'));
+        let costo = num(tr.dataset.costoNeto); if (costo === null) costo = num(val('.col-costo'));
+        const venta = costo === null ? num(val('.col-venta')) : costo * (1 + margen / 100);
+        let totalFila = num(tr.dataset.totalVenta); if (totalFila === null) totalFila = num(val('.col-totventa'));
+        const importe = (n, simb) => n === null ? { v: null, len: 0 } : { v: n, f: formatoMonedaExcel(simb), len: simb.length + 1 + mostrarNum(n).length };
+        const pct = sel => { const n = num(val(sel)); return n === null ? { v: null, len: 0 } : { v: n, f: FORMATO_PORCENTAJE_EXCEL, len: mostrarNum(n).length + 2 }; };
+        const cant = num(val('.col-cantidad'));
+        const item = limpiarTxt(val('.col-nroitem')).trim();
+        return [
+          /^(0|[1-9]\d{0,14})$/.test(item) ? { v: Number(item), f: '0', len: item.length } : celdaTexto(item),
+          cant === null ? { v: null, len: 0 } : { v: cant, f: entero(cant) ? '#,##0' : '#,##0.00', len: String(cant).length + 1 },
+          celdaCodigo(val('.col-codigo')),
+          celdaTexto(val('.col-detalle')),
+          celdaTexto(val('.col-marca')),
+          celdaTexto(val('.col-solicitud')),
+          celdaTexto(val('.col-obs')),
+          importe(num(val('.col-precio')), obtenerSimboloMoneda(monedaFila)),
+          { v: monedaTxt[monedaFila] || monedaTxt['$'], len: (monedaTxt[monedaFila] || '').length },
+          pct('.col-d1'), pct('.col-d2'), pct('.col-d3'), pct('.col-d4'), pct('.col-d5'),
+          importe(costo, simbolo),
+          pct('.col-margen'),
+          importe(venta, simbolo),
+          importe(totalFila, simbolo),
+          celdaTexto(val('.col-origen')),
+          celdaCodigo(val('.col-codcliente')),
+          celdaCodigo(val('.col-codcliente2')),
+          celdaTexto(tr.dataset.memo || '')
+        ];
+      });
+
+      // ---- Ancho de columnas auto-ajustado al contenido ----
+      cols.forEach((c, i) => {
+        const encabezado = c.t + (c.leyenda ? '\n(' + simbolo + ')' : '');
+        c.encabezado = encabezado;
+        const largoCab = Math.max(...encabezado.split('\n').map(l => l.length)) * 1.15 + 4;   // negrita + botón del filtro
+        const largoDatos = filas.reduce((m, f) => Math.max(m, f[i].len), 0) * 1.1 + 2;
+        let ancho = Math.max(c.min || 8, largoCab, largoDatos);
+        if (c.max) ancho = Math.min(c.max, ancho);
+        c.ancho = Math.round(ancho * 10) / 10;
+      });
+      const lineasNecesarias = (txt, ancho) => String(txt || '').split('\n').reduce((s, seg) => s + Math.max(1, Math.ceil(seg.length / Math.max(1, ancho * 1.05))), 0);
+
+      // ---- Libro y hoja ----
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'Generador de Presupuestos';
+      wb.title = 'Presupuesto ' + (numero || '');
+      wb.subject = 'Presupuesto para ' + cliente;
+      wb.created = ahora; wb.modified = ahora;
+      const ws = wb.addWorksheet('Presupuesto', { properties: { tabColor: { argb: C.azul } } });
+      cols.forEach((c, i) => { ws.getColumn(i + 1).width = c.ancho; });
+
+      const FILA_TITULO = 1, FILA_ACENTO = 2, FILA_META_ROT = 3, FILA_META_VAL = 4, FILA_ESPACIO = 5, FILA_CAB = 6;
+      const PRIMERA = FILA_CAB + 1;
+      const ULTIMA = PRIMERA + filas.length - 1;
+      const FILA_TOTAL = ULTIMA + 1;
+      const fuente = (o) => Object.assign({ name: 'Calibri', size: 10, color: { argb: C.texto } }, o || {});
+      const relleno = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+      const lado = (argb, estilo) => ({ style: estilo || 'thin', color: { argb } });
+      const rellenarFila = (r, argb) => { for (let c = 1; c <= N; c++) ws.getCell(r, c).fill = relleno(argb); };
+
+      // Banda de título
+      rellenarFila(FILA_TITULO, C.marino);
+      ws.getRow(FILA_TITULO).height = 32;
+      ws.mergeCells(FILA_TITULO, 1, FILA_TITULO, 8);
+      const celdaTitulo = ws.getCell(FILA_TITULO, 1);
+      celdaTitulo.value = { richText: [
+        { text: 'PROPUESTA ECONÓMICA', font: { name: 'Calibri', size: 17, bold: true, color: { argb: C.blanco } } },
+        { text: '     Planilla de presupuesto', font: { name: 'Calibri', size: 10, color: { argb: 'FFB6C4D9' } } }
+      ] };
+      celdaTitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      rellenarFila(FILA_ACENTO, C.azul);
+      ws.getRow(FILA_ACENTO).height = 4;
+
+      // Datos del presupuesto (rótulo arriba, valor abajo)
+      const grupos = [
+        ['N° CLIENTE', nroCliente || '—', 1, 2],
+        ['CLIENTE / EMPRESA', cliente || '—', 3, 4],
+        ['N° DE PRESUPUESTO', numero || '—', 5, 6],
+        ['VÁLIDO HASTA', vigencia, 7, 7],
+        ['MONEDA DEL PRESUPUESTO', nombreMoneda, 8, 9],
+        ['COTIZACIONES DE REFERENCIA', cotizaciones, 10, 14],
+        ['LEYENDA DE IVA', leyendaIVA || 'Sin leyenda', 15, 17]
+      ];
+      rellenarFila(FILA_META_ROT, C.meta); rellenarFila(FILA_META_VAL, C.meta);
+      ws.getRow(FILA_META_ROT).height = 16;
+      let alturaValores = 24;
+      grupos.forEach(([rotulo, valor, desde, hasta]) => {
+        if (hasta > desde) { ws.mergeCells(FILA_META_ROT, desde, FILA_META_ROT, hasta); ws.mergeCells(FILA_META_VAL, desde, FILA_META_VAL, hasta); }
+        const anchoGrupo = cols.slice(desde - 1, hasta).reduce((s, c) => s + c.ancho, 0);
+        const r = ws.getCell(FILA_META_ROT, desde), v = ws.getCell(FILA_META_VAL, desde);
+        r.value = limpiarTxt(rotulo);
+        r.font = fuente({ size: 8, bold: true, color: { argb: C.suave } });
+        r.alignment = { vertical: 'bottom', horizontal: 'left', indent: 1 };
+        v.value = limpiarTxt(valor);
+        v.font = fuente({ size: 11, bold: true, color: { argb: C.marino } });
+        v.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true, indent: 1 };
+        alturaValores = Math.max(alturaValores, lineasNecesarias(valor, anchoGrupo) * 15 + 7);
+      });
+      ws.getRow(FILA_META_VAL).height = alturaValores;
+      for (let c = 1; c <= N; c++) ws.getCell(FILA_META_VAL, c).border = { bottom: lado(C.bordeFuerte) };
+      ws.getRow(FILA_ESPACIO).height = 8;
+
+      // Encabezados de la tabla
+      const filaCab = ws.getRow(FILA_CAB);
+      filaCab.height = 36;
+      cols.forEach((c, i) => {
+        const cel = filaCab.getCell(i + 1);
+        cel.value = c.encabezado;
+        cel.font = fuente({ size: 10, bold: true, color: { argb: C.blanco } });
+        cel.fill = relleno(c.destacada ? C.verdeCab : C.encabezado);
+        cel.alignment = { vertical: 'middle', horizontal: c.tipo === 'texto' || c.tipo === 'codigo' ? 'left' : 'center', wrapText: true, indent: c.tipo === 'texto' || c.tipo === 'codigo' ? 1 : 0 };
+        cel.border = { top: lado(C.marino), left: lado('FF3D5A80'), right: lado('FF3D5A80'), bottom: lado(C.marino, 'medium') };
+      });
+
+      // Filas de datos
+      let sumaTotal = 0;
+      filas.forEach((f, k) => {
+        const rn = PRIMERA + k, fila = ws.getRow(rn);
+        const par = k % 2 === 1;
+        let lineas = 1;
+        f.forEach((d, i) => {
+          const c = cols[i], cel = fila.getCell(i + 1);
+          cel.value = d.v;
+          if (d.f) cel.numFmt = d.f;
+          const esTexto = c.tipo === 'texto' || c.tipo === 'codigo';
+          cel.font = c.destacada ? fuente({ bold: true, color: { argb: C.verdeTexto } }) : fuente();
+          cel.fill = relleno(c.destacada ? C.verdeFondo : (par ? C.zebra : C.blanco));
+          cel.alignment = { vertical: 'middle', horizontal: c.al, wrapText: c.tipo === 'texto', indent: esTexto ? 1 : 0 };
+          cel.border = { top: lado(C.borde), left: lado(C.borde), right: lado(C.borde), bottom: lado(C.borde) };
+          if (c.tipo === 'texto') lineas = Math.max(lineas, lineasNecesarias(d.v, c.ancho - 1));
+          if (i + 1 === IDX_TOTAL && d.v !== null) sumaTotal += d.v;
+        });
+        fila.height = Math.max(20, lineas * 13.5 + 6);
+      });
+
+      // Fila de totales (suma con fórmula: se actualiza si se edita la planilla)
+      const filaTot = ws.getRow(FILA_TOTAL);
+      filaTot.height = 24;
+      for (let c = 1; c <= N; c++) {
+        const cel = filaTot.getCell(c);
+        cel.fill = relleno(C.total);
+        cel.border = { top: lado(C.marino, 'medium'), bottom: lado(C.marino, 'medium') };
+      }
+      ws.mergeCells(FILA_TOTAL, 1, FILA_TOTAL, IDX_TOTAL - 1);
+      const etiquetaTot = ws.getCell(FILA_TOTAL, 1);
+      etiquetaTot.value = 'TOTAL DEL PRESUPUESTO';
+      etiquetaTot.font = fuente({ size: 11, bold: true, color: { argb: C.marino } });
+      etiquetaTot.alignment = { vertical: 'middle', horizontal: 'right', indent: 1 };
+      const colTot = letraColumnaExcel(IDX_TOTAL);
+      const celdaTot = ws.getCell(FILA_TOTAL, IDX_TOTAL);
+      celdaTot.value = { formula: 'SUM(' + colTot + PRIMERA + ':' + colTot + ULTIMA + ')', result: sumaTotal };
+      celdaTot.numFmt = fmtImporte;
+      celdaTot.font = fuente({ size: 11, bold: true, color: { argb: C.marino } });
+      celdaTot.alignment = { vertical: 'middle', horizontal: 'right' };
+
+      // Notas al pie
+      let rn = FILA_TOTAL + 2;
+      const nota = (texto, opciones) => {
+        ws.mergeCells(rn, 1, rn, 10);
+        const cel = ws.getCell(rn, 1);
+        cel.value = limpiarTxt(texto);
+        cel.font = fuente(Object.assign({ size: 9, color: { argb: C.suave } }, opciones || {}));
+        cel.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        rn++;
+      };
+      nota('Presupuesto expresado en ' + nombreMoneda.toLowerCase() + '.');
+      if (leyendaIVA) nota(leyendaIVA);
+      nota('Generado con Generador de Presupuestos' + (version ? ' ' + version[0] : '') + ' el ' + ahora.toLocaleDateString('es-AR') + ' ' + ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' h.', { italic: true, color: { argb: 'FF94A3B8' } });
+
+      // Vista, filtros e impresión
+      ws.views = [{ state: 'frozen', xSplit: 0, ySplit: FILA_CAB, showGridLines: false, activeCell: 'A' + PRIMERA }];
+      ws.autoFilter = { from: { row: FILA_CAB, column: 1 }, to: { row: ULTIMA, column: N } };
+      ws.pageSetup = {
+        paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0,
+        printTitlesRow: FILA_CAB + ':' + FILA_CAB, horizontalCentered: true,
+        margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.65, header: 0.3, footer: 0.3 }
+      };
+      ws.headerFooter = { oddFooter: '&L&8Presupuesto ' + (numero || '').replace(/&/g, '&&').slice(0, 60) + '&R&8Página &P de &N' };
+
+      return wb.xlsx.writeBuffer();
+    }
+
+    /* ============================================================
        GENERADOR DE PDF PROPIO (sin librerías externas)
        Escribe el archivo PDF directamente con las fuentes estándar
        Helvetica / Helvetica-Bold (codificación WinAnsi: tildes, ñ, €).
@@ -2028,13 +2339,20 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
         } else {
           if (!window.XLSX) throw new Error('No se pudo cargar la biblioteca Excel.');
           const book = XLSX.read(buffer, {type:'array'});
-          matrix = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], {header:1, defval:'', raw:true});
+          // La planilla exportada por la app tiene la hoja "Presupuesto"; si no existe, se usa la primera
+          const nombreHoja = book.SheetNames.includes('Presupuesto') ? 'Presupuesto' : book.SheetNames[0];
+          matrix = XLSX.utils.sheet_to_json(book.Sheets[nombreHoja], {header:1, defval:'', raw:true});
         }
         const norm = v => normalizarEncabezado(v);
         const claves = ['codigo','cantidad','detalle articulo','descripcion','precio lista'];
         const headerIndex = matrix.findIndex(row => row.some(v => claves.includes(norm(v))));
         const headers = headerIndex >= 0 ? matrix[headerIndex].map(norm) : null;
-        const data = matrix.slice(headerIndex >= 0 ? headerIndex + 1 : 0).filter(row => row.some(v => String(v).trim() !== ''));
+        // Las filas desde la de totales ("TOTAL DEL PRESUPUESTO") hacia abajo (totales y notas al pie) no son ítems
+        const esFilaTotales = row => row.some(v => ['total', 'totales', 'total presupuesto', 'total del presupuesto'].includes(norm(v)));
+        let filasDatos = matrix.slice(headerIndex >= 0 ? headerIndex + 1 : 0);
+        const corteTotales = filasDatos.findIndex(esFilaTotales);
+        if (corteTotales >= 0) filasDatos = filasDatos.slice(0, corteTotales);
+        const data = filasDatos.filter(row => row.some(v => String(v).trim() !== ''));
         let monedasNoReconocidas = 0;
         const items = data.map(row => {
           const item = {};
@@ -2263,6 +2581,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       cargarClientesGitHub();
       actualizarEstadoRed();
       verificarLibrerias();
+      cargarExcelJS().catch(() => { /* se reintenta al exportar; allí se informa si no hay conexión */ });
       if (!restaurarAutosave()) agregarMultiplesFilas(8);
       calcularTotalesGenerales();
     };
