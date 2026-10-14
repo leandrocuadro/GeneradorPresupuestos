@@ -9,6 +9,17 @@ Criterio de numeración: MAYOR.MENOR
   - Las versiones más nuevas figuran primero.
 
 
+VERSIÓN 3.1 - 14/10/2026 - Limpieza por bloques, cotizaciones en 0 y encabezado sin leyenda local
+---------------------------------------------------------------------------------------------
+- Nuevo botón "Limpiar Encabezado" (en Datos generales): borra cliente, Nro. Cliente,
+  número de presupuesto, fecha, moneda, leyenda de IVA y cotizaciones. No toca los ítems.
+- El botón "Limpiar Todo" pasa a llamarse "Limpiar Ítems": borra solo la tabla de ítems.
+- Las cotizaciones (Dólar BNA, Dólar Divisa, Euro) arrancan siempre en 0.
+- Aviso: si el presupuesto usa una moneda cuya cotización está en 0, se muestra
+  "Falta cotización" debajo de las cotizaciones. Mientras esté en 0, esos importes no se convierten.
+- Se quitó la leyenda "Edición Local Windows" del encabezado.
+
+
 VERSIÓN 3.0 - 14/10/2026 - Exportación CSV: importes sumables en Excel
 --------------------------------------------------------------------
 - Corregido: al exportar un presupuesto en dólares, las columnas Costo Neto Unit.,

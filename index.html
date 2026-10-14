@@ -352,9 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span class="font-semibold text-gray-300">Generador de Presupuestos v3.0</span>
-        <span class="text-gray-600">|</span>
-        <span class="text-gray-400">Edición Local Windows</span>
+        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.1</span>
       </div>
       <div class="flex items-center gap-2 text-xs">
         <span id="indicadorRed" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conexión a internet"></span>
@@ -429,6 +427,9 @@
       <div class="text-xs font-semibold text-gray-700 border-b border-gray-200 pb-2 mb-3 flex items-center gap-2">
         <i class="fa-solid fa-circle-info text-[#0078d4]"></i>
         <span>DATOS GENERALES DEL PRESUPUESTO</span>
+        <button type="button" onclick="limpiarEncabezado()" class="win-btn text-xs text-red-600 hover:text-red-700 ml-auto normal-case tracking-normal font-normal" title="Borra cliente, número, fecha, moneda, IVA y cotizaciones (no toca los ítems)">
+          <i class="fa-solid fa-eraser"></i> Limpiar Encabezado
+        </button>
       </div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -482,15 +483,15 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Dólar BNA (billete)</label>
-            <input type="number" id="metaTCBNA" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
+            <input type="number" id="metaTCBNA" value="0" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Dólar Divisa (mayorista)</label>
-            <input type="number" id="metaTCDivisa" value="1000" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
+            <input type="number" id="metaTCDivisa" value="0" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
           <div>
             <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Euro</label>
-            <input type="number" id="metaTCEUR" value="1150" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
+            <input type="number" id="metaTCEUR" value="0" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
         </div>
         <p id="infoCotizacionBNA" class="text-[10px] text-gray-500 mt-1.5 font-mono"></p>
@@ -512,8 +513,8 @@
         <button onclick="limpiarFiltros()" class="win-btn text-xs">
           <i class="fa-solid fa-filter-circle-xmark text-gray-500"></i> Limpiar Filtros
         </button>
-        <button onclick="limpiarTodo()" class="win-btn text-xs text-red-600 hover:text-red-700">
-          <i class="fa-solid fa-trash-can"></i> Limpiar Todo
+        <button onclick="limpiarTodo()" class="win-btn text-xs text-red-600 hover:text-red-700" title="Borra los ítems de la tabla (no toca los datos del encabezado)">
+          <i class="fa-solid fa-trash-can"></i> Limpiar Ítems
         </button>
       </div>
     </div>
@@ -1436,6 +1437,41 @@
       const filas = document.querySelectorAll('#tbodyPresupuesto tr');
       filas.forEach(tr => calcularFila(tr));
       calcularTotalesGenerales();
+      actualizarAvisoCotizaciones();
+    }
+
+    // Avisa si el presupuesto usa una moneda cuya cotización está en 0 (sin cotización no hay conversión)
+    const PREFIJO_AVISO_COTIZACION = 'Falta cotización';
+    function actualizarAvisoCotizaciones() {
+      const aviso = document.getElementById('infoCotizacionBNA');
+      if (!aviso) return;
+      const usadas = new Set([monedaActual, ...Array.from(document.querySelectorAll('#tbodyPresupuesto .col-monedafila'), s => s.value)]);
+      const faltan = [];
+      if (usadas.has('USD') && !(tipoCambioBNA > 0)) faltan.push('Dólar BNA');
+      if (usadas.has('DIVISA') && !(tipoCambioDivisa > 0)) faltan.push('Dólar Divisa');
+      if (usadas.has('EUR') && !(tipoCambioEUR > 0)) faltan.push('Euro');
+      if (faltan.length) aviso.textContent = PREFIJO_AVISO_COTIZACION + ' (' + faltan.join(', ') + '): los importes en esa moneda no se convierten. Ingresala o usá "Actualizar Cotizaciones".';
+      else if (aviso.textContent.startsWith(PREFIJO_AVISO_COTIZACION)) aviso.textContent = '';
+    }
+
+    // Borra solo los datos del encabezado (no los ítems)
+    function limpiarEncabezado() {
+      if (!confirm('¿Borrar los datos del encabezado (cliente, número, fecha, moneda, IVA y cotizaciones)? Los ítems no se borran.')) return;
+      document.getElementById('metaNroCliente').value = '';
+      document.getElementById('metaCliente').value = '';
+      document.getElementById('metaNumero').value = 'PRES-2026-001';
+      document.getElementById('metaFecha').value = '';
+      document.getElementById('metaMoneda').value = '$';
+      document.getElementById('metaIVA').value = 'excluye';
+      document.getElementById('metaTCBNA').value = '0';
+      document.getElementById('metaTCDivisa').value = '0';
+      document.getElementById('metaTCEUR').value = '0';
+      document.getElementById('listaClientes').innerHTML = '';
+      ['ayudaNroCliente', 'ayudaCliente'].forEach(id => { const p = document.getElementById(id); p.textContent = ''; p.hidden = true; });
+      actualizarTipoCambio();
+      actualizarMoneda();
+      guardarAutosave();
+      mostrarToast('Encabezado reiniciado.', 'info');
     }
 
     let ultimoReemplazoGlobal = null;
@@ -2266,6 +2302,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       verificarLibrerias();
       if (!restaurarAutosave()) agregarMultiplesFilas(8);
       calcularTotalesGenerales();
+      actualizarTipoCambio();
     };
   </script>
 </body>
