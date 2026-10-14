@@ -352,7 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span class="font-semibold text-gray-300">Generador de Presupuestos v2.9</span>
+        <span class="font-semibold text-gray-300">Generador de Presupuestos v3.0</span>
         <span class="text-gray-600">|</span>
         <span class="text-gray-400">Edición Local Windows</span>
       </div>
@@ -1627,7 +1627,8 @@
     function csvCell(v) {
       let s = v == null ? '' : String(v);
       // Evita inyección de fórmulas en Excel (=, +, @, tab, CR y '-' salvo que sea un número)
-      if (/^\s*[=+@\t\r]/.test(s) || (/^\s*-/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s.trim()))) s = "'" + s;
+      // Los números pueden venir con separador de miles ("-1.234,50") y no deben quedar como texto
+      if (/^\s*[=+@\t\r]/.test(s) || (/^\s*-/.test(s) && !/^-?(\d{1,3}(\.\d{3})+|\d+)([.,]\d+)?$/.test(s.trim()))) s = "'" + s;
       return '"' + s.replace(/"/g, '""') + '"';
     }
     const camposExcel = [
@@ -1660,11 +1661,13 @@
         ['Código Cliente B', '.col-codcliente2'], ['Memo', null]
       ];
       const numericas = ['.col-cantidad','.col-d1','.col-d2','.col-d3','.col-d4','.col-d5','.col-margen'];
-      // Importes en formato moneda con 2 decimales: "$ 1.234,50" (Precio Lista usa la moneda de la fila; el resto, la del presupuesto)
+      // Importes con 2 decimales. Precio Lista lleva su símbolo porque cada fila puede tener otra moneda.
+      // Costo Neto, Precio Venta y Total son solo números (Excel los suma) y la moneda va en el encabezado.
       const simboloCSV = m => ({ '$': '$', USD: 'U$S', DIVISA: 'U$S', EUR: '€' }[m] || '$');
       const importesFila = ['.col-precio'];
       const importesPresupuesto = ['.col-costo', '.col-venta', '.col-totventa'];
-      const lineas = [columnas.map(col => csvCell(col[0])).join(';')];
+      const encabezado = col => importesPresupuesto.includes(col[1]) ? col[0] + ' (' + simboloCSV(monedaActual) + ')' : col[0];
+      const lineas = [columnas.map(col => csvCell(encabezado(col))).join(';')];
       let exportadas = 0;
       document.querySelectorAll('#tbodyPresupuesto tr').forEach(tr => {
         const val = sel => (tr.querySelector(sel)?.value || '').trim();
@@ -1677,10 +1680,8 @@
           if (col[1] && (importesFila.includes(col[1]) || importesPresupuesto.includes(col[1]))) {
             const n = parseFloat(valor);
             if (isNaN(n)) valor = '';
-            else {
-              const moneda = importesFila.includes(col[1]) ? (tr.querySelector('.col-monedafila')?.value || '$') : monedaActual;
-              valor = simboloCSV(moneda) + ' ' + formatoNumeroAR(n);
-            }
+            else if (importesPresupuesto.includes(col[1])) valor = formatoNumeroAR(n);
+            else valor = simboloCSV(tr.querySelector('.col-monedafila')?.value || '$') + ' ' + formatoNumeroAR(n);
           } else if (col[1] && numericas.includes(col[1])) valor = String(valor).replace('.', ',');
           return csvCell(valor);
         });

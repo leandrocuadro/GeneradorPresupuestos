@@ -9,6 +9,18 @@ Criterio de numeración: MAYOR.MENOR
   - Las versiones más nuevas figuran primero.
 
 
+VERSIÓN 3.0 - 14/10/2026 - Exportación CSV: importes sumables en Excel
+--------------------------------------------------------------------
+- Corregido: al exportar un presupuesto en dólares, las columnas Costo Neto Unit.,
+  Precio Venta Unit. y Total Precio Venta no se sumaban en Excel (el símbolo "U$S"
+  hacía que Excel las tomara como texto).
+- Esas tres columnas ahora contienen solo el número con 2 decimales (ej. 1.234,50).
+  La moneda aparece en el encabezado, ej. "Total Precio Venta (U$S)".
+- Precio Lista conserva el símbolo de su moneda de fila ($, U$S, U$S Div., €).
+- Los importes negativos con separador de miles ya no se guardan como texto.
+- El CSV exportado se puede volver a importar sin cambios.
+
+
 VERSIÓN 2.9 - 10/10/2026 - Clientes obligatorios y sugerencias de tipeo
 -----------------------------------------------------------------------
 - "Nro. Cliente" y "Cliente / Empresa" pasan a ser campos obligatorios
