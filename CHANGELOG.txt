@@ -9,6 +9,17 @@ Criterio de numeración: MAYOR.MENOR
   - Las versiones más nuevas figuran primero.
 
 
+VERSIÓN 3.2 - 14/10/2026 - Vista previa PDF, plantilla de ejemplo y atajos de teclado
+-----------------------------------------------------------------------------------
+- Nuevo "Vista previa PDF" en el menú Exportar: muestra el presupuesto antes de descargarlo,
+  con botón para descargarlo o cerrarlo (Esc también cierra). Mismas validaciones que el PDF.
+- Nuevo "Descargar plantilla de ejemplo" en el menú Importar: un CSV con los encabezados
+  que reconoce la app y dos filas de ejemplo para completar y reimportar.
+- Atajos en la tabla de ítems: Enter pasa a la misma columna de la fila siguiente
+  (salta los campos calculados); en la última fila agrega una nueva.
+  Ctrl+Enter agrega una fila nueva y enfoca su código.
+
+
 VERSIÓN 3.1 - 14/10/2026 - Limpieza por bloques, cotizaciones en 0 y encabezado sin leyenda local
 ---------------------------------------------------------------------------------------------
 - Nuevo botón "Limpiar Encabezado" (en Datos generales): borra cliente, Nro. Cliente,

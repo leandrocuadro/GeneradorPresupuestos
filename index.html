@@ -352,7 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.1</span>
+        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.2</span>
       </div>
       <div class="flex items-center gap-2 text-xs">
         <span id="indicadorRed" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conexión a internet"></span>
@@ -392,6 +392,9 @@
               <i class="fa-solid fa-file-excel text-[#0078d4] w-4 text-center"></i> Importar Excel / CSV
               <input type="file" id="inputExcel" accept=".xlsx, .xls, .csv" onchange="importarExcel(event)" class="hidden">
             </label>
+            <button type="button" onclick="descargarPlantillaCSV()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-b border-gray-100" title="Archivo CSV con los encabezados correctos y filas de ejemplo para completar">
+              <i class="fa-solid fa-table-list text-emerald-600 w-4 text-center"></i> Descargar plantilla de ejemplo
+            </button>
             <label class="flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] cursor-pointer transition-colors">
               <i class="fa-solid fa-file-code text-[#0078d4] w-4 text-center"></i> Cargar Backup JSON
               <input type="file" id="inputBackupJSON" accept=".json,application/json" onchange="cargarBackupJSON(event)" class="hidden">
@@ -409,6 +412,9 @@
             </button>
             <button type="button" onclick="exportarPDF()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
               <i class="fa-solid fa-file-pdf text-red-600 w-4 text-center"></i> Exportar PDF
+            </button>
+            <button type="button" onclick="exportarPDF(true)" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
+              <i class="fa-solid fa-eye text-red-600 w-4 text-center"></i> Vista previa PDF
             </button>
             <button type="button" onclick="exportarCSV()" class="w-full flex items-center gap-2.5 px-3 py-2 text-xs text-gray-700 hover:bg-[#e5f3ff] transition-colors text-left border-t border-gray-100">
               <i class="fa-solid fa-file-csv text-emerald-600 w-4 text-center"></i> Exportar CSV
@@ -673,6 +679,25 @@
   </main>
 
   <!-- Ventana Modal Memo (Estilo Windows Aero) -->
+  <!-- Vista previa del PDF -->
+  <div id="modalPDF" class="fixed inset-0 bg-black/40 flex items-center justify-center hidden z-50 p-2 sm:p-4">
+    <div class="win-card w-full max-w-4xl shadow-2xl overflow-hidden rounded-md border border-[#3c7fb1] flex flex-col" style="height:92vh">
+      <div class="bg-gradient-to-r from-[#2a7fd0] via-[#1565b8] to-[#4aa1e8] text-white px-3 py-2 flex justify-between items-center text-xs font-bold shadow-sm">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-file-pdf text-red-200"></i>
+          <span>Vista previa del presupuesto (PDF)</span>
+        </div>
+        <button onclick="cerrarVistaPreviaPDF()" class="hover:bg-red-600 px-2 py-0.5 rounded text-white font-bold transition-colors" aria-label="Cerrar">✕</button>
+      </div>
+      <iframe id="framePDF" title="Vista previa del PDF" style="flex:1 1 auto;min-height:0;width:100%;border:0;background:#e5e7eb"></iframe>
+      <p class="text-[11px] text-gray-500 px-3 pt-2 sm:hidden">Si no se ve la vista previa en este dispositivo, usá "Descargar PDF".</p>
+      <div class="p-3 flex justify-end gap-2 border-t border-gray-200 bg-gray-50">
+        <button onclick="cerrarVistaPreviaPDF()" class="win-btn text-xs">Cerrar</button>
+        <button onclick="descargarVistaPreviaPDF()" class="win-btn win-btn-primary text-xs"><i class="fa-solid fa-download"></i> Descargar PDF</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalMemo" class="fixed inset-0 bg-black/40 flex items-center justify-center hidden z-50 p-4">
     <div class="win-card w-full max-w-md shadow-2xl overflow-hidden rounded-md border border-[#3c7fb1]">
       
@@ -1221,6 +1246,7 @@
 
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && !document.getElementById('modalMemo').classList.contains('hidden')) cerrarModalMemo();
+      if (e.key === 'Escape' && !document.getElementById('modalPDF').classList.contains('hidden')) cerrarVistaPreviaPDF();
     });
 
     function agregarFila(datos = null) {
@@ -1728,6 +1754,54 @@
       descargarArchivo(nombreBaseArchivo() + '.csv', '\uFEFF' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
       mostrarToast('Archivo CSV exportado (' + exportadas + ' ítem(s)).' + notaFiltros(), 'exito');
     }
+    // ---- Plantilla de ejemplo para importar: CSV con los encabezados que reconoce la app ----
+    function descargarPlantillaCSV() {
+      cerrarDropdowns();
+      const encabezados = ['Ítem', 'Cantidad', 'Código', 'Detalle Artículo', 'Marca', 'Solicitud Cliente', 'Observaciones', 'Precio Lista', 'Moneda Costo',
+        'Descuento 1 %', 'Descuento 2 %', 'Descuento 3 %', 'Descuento 4 %', 'Descuento 5 %', 'Margen %', 'Proveedor', 'Código Cliente A', 'Código Cliente B', 'Memo'];
+      const ejemplos = [
+        ['1', '5', 'EJEMPLO-001', 'Ejemplo: reemplazar por el artículo real', 'Marca', 'Entrega en obra', 'Oferta', '150000,00', '$', '10', '', '', '', '', '35', 'Nacional', 'CLI-A10', '', 'Nota interna (opcional)'],
+        ['2', '2', 'EJEMPLO-002', 'Ejemplo en dólares: borrar esta fila', 'Marca', '', '', '1000,00', 'USD', '', '', '', '', '', '20', 'Importado', '', '', '']
+      ];
+      const lineas = [encabezados, ...ejemplos].map(fila => fila.map(csvCell).join(';'));
+      descargarArchivo('Plantilla_importacion_presupuesto.csv', '﻿' + lineas.join('\r\n'), 'text/csv;charset=utf-8');
+      mostrarToast('Plantilla descargada. Completá las filas, borrá los ejemplos y usá Importar.', 'info');
+    }
+
+    // ---- Atajos en la tabla: Enter baja a la misma columna de la fila siguiente; Ctrl+Enter agrega una fila ----
+    (function () {
+      const tbody = document.getElementById('tbodyPresupuesto');
+      function campoEn(tr, indice) {
+        const td = tr && tr.children[indice];
+        return td ? td.querySelector('input, select') : null;
+      }
+      tbody.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.shiftKey || e.altKey) return;
+        const campo = e.target;
+        if (!campo.matches('input, select') || campo.readOnly || campo.disabled) return;
+        const tr = campo.closest('tr'), td = campo.closest('td');
+        if (!tr || !td) return;
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          agregarFila();
+          const destino = tbody.lastElementChild && tbody.lastElementChild.querySelector('.col-codigo');
+          if (destino) destino.focus();
+          return;
+        }
+        const indice = Array.prototype.indexOf.call(tr.children, td);
+        let fila = tr.nextElementSibling;
+        while (fila) {
+          const destino = campoEn(fila, indice);
+          if (destino && !destino.readOnly) { destino.focus(); if (destino.select) destino.select(); return; }
+          fila = fila.nextElementSibling;
+        }
+        // Última fila: se agrega una nueva en la misma columna
+        agregarFila();
+        const destino = campoEn(tbody.lastElementChild, indice);
+        if (destino && !destino.readOnly) destino.focus();
+      });
+    })();
+
     /* ============================================================
        GENERADOR DE PDF PROPIO (sin librerías externas)
        Escribe el archivo PDF directamente con las fuentes estándar
@@ -1882,7 +1956,7 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       return (n < 0 ? '-' : '') + ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + dec;
     }
 
-    function exportarPDF() {
+    function exportarPDF(vistaPrevia = false) {
       cerrarDropdowns();
       if (!validarClienteObligatorio()) return;
       const trsPDF = Array.from(document.querySelectorAll('#tbodyPresupuesto tr')).filter(tr => !filaVacia(tr));
@@ -2014,7 +2088,32 @@ const ANCHO_HELV_BOLD=[278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 58
       }
 
       const bytes = pdf.generar({ titulo: 'Presupuesto ' + numero, asunto: 'Presupuesto para ' + cliente });
+      if (vistaPrevia) { abrirVistaPreviaPDF(bytes, nombreBaseArchivo() + '.pdf'); return; }
       descargarArchivo(nombreBaseArchivo() + '.pdf', bytes, 'application/pdf');
+      mostrarToast('Archivo PDF exportado.' + notaFiltros(), 'exito');
+    }
+
+    // ---- Vista previa del PDF (mismo archivo que se descarga) ----
+    let vistaPreviaPDF = null;
+    function abrirVistaPreviaPDF(bytes, nombre) {
+      cerrarVistaPreviaPDF();
+      try {
+        const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+        vistaPreviaPDF = { bytes, nombre, url };
+        document.getElementById('framePDF').src = url;
+        document.getElementById('modalPDF').classList.remove('hidden');
+      } catch (e) {
+        mostrarToast('No se pudo mostrar la vista previa. Usá "Exportar PDF".', 'alerta');
+      }
+    }
+    function cerrarVistaPreviaPDF() {
+      document.getElementById('modalPDF').classList.add('hidden');
+      document.getElementById('framePDF').src = 'about:blank';
+      if (vistaPreviaPDF) { URL.revokeObjectURL(vistaPreviaPDF.url); vistaPreviaPDF = null; }
+    }
+    function descargarVistaPreviaPDF() {
+      if (!vistaPreviaPDF) return;
+      descargarArchivo(vistaPreviaPDF.nombre, vistaPreviaPDF.bytes, 'application/pdf');
       mostrarToast('Archivo PDF exportado.' + notaFiltros(), 'exito');
     }
     function parsearCSV(texto) {
