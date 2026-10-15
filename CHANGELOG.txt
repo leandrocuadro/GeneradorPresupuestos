@@ -9,6 +9,13 @@ Criterio de numeración: MAYOR.MENOR
   - Las versiones más nuevas figuran primero.
 
 
+VERSIÓN 3.3 - 15/10/2026 - Euro billete con carga manual
+---------------------------------------------------------
+- "Actualizar Cotizaciones" ya no modifica el Euro. Solo actualiza Dólar BNA y Dólar Divisa.
+  La fuente automática de euro devolvía la cotización oficial, que no coincide con el billete.
+- El campo Euro pasa a llamarse "Euro (billete, manual)": se carga a mano y conserva su valor.
+
+
 VERSIÓN 3.2 - 14/10/2026 - Vista previa PDF, plantilla de ejemplo y atajos de teclado
 -----------------------------------------------------------------------------------
 - Nuevo "Vista previa PDF" en el menú Exportar: muestra el presupuesto antes de descargarlo,

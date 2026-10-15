@@ -1,4 +1,7 @@
-# Generador de Presupuestos versión 3.2
+# Generador de Presupuestos versión 3.3
+
+## v3.3 – 15/10/2026
+- "Actualizar Cotizaciones" ya no cambia el Euro: el euro billete se carga a mano (la fuente automática daba la cotización oficial).
 
 ## v3.2 – 14/10/2026
 - Nueva "Vista previa PDF" en Exportar: revisá el presupuesto antes de descargarlo.
@@ -14,6 +17,7 @@
 ## Versiones anteriores
 El detalle completo está en [`CHANGELOG.txt`](CHANGELOG.txt).
 
+- **v3.2:** vista previa PDF, plantilla de ejemplo para importar y atajos de teclado (Enter / Ctrl+Enter).
 - **v3.1:** botón "Limpiar Encabezado" (sin tocar ítems); "Limpiar Todo" pasa a "Limpiar Ítems"; cotizaciones arrancan en 0 con aviso si falta una; se quitó "Edición Local Windows".
 - **v3.0:** corregido el CSV: en presupuestos en dólares, Costo Neto, Precio Venta y Total son números que Excel suma (la moneda va en el encabezado).
 - **v2.9:** Nro. Cliente y Cliente / Empresa obligatorios, validados contra `clientes.csv`, con sugerencias de tipeo; PDF/CSV se bloquean si faltan datos.

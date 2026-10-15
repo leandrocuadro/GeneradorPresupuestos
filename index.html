@@ -352,7 +352,7 @@
     <div class="bg-[#111827] px-4 py-1 text-[11px] text-gray-400 flex justify-between items-center border-b border-gray-800 select-none">
       <div class="flex items-center gap-2">
         <i class="fa-solid fa-calculator text-[#0078d4]"></i>
-        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.2</span>
+        <span id="etiquetaVersion" class="font-semibold text-gray-300">Generador de Presupuestos v3.3</span>
       </div>
       <div class="flex items-center gap-2 text-xs">
         <span id="indicadorRed" class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Conexión a internet"></span>
@@ -496,7 +496,7 @@
             <input type="number" id="metaTCDivisa" value="0" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
           <div>
-            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">Euro</label>
+            <label class="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1" title="Carga manual: no se actualiza con el botón">Euro (billete, manual)</label>
             <input type="number" id="metaTCEUR" value="0" min="0" step="0.01" onchange="actualizarTipoCambio()" class="win-input-group font-mono">
           </div>
         </div>
@@ -1152,19 +1152,18 @@
 
       btn.disabled = true;
       icono.classList.add('fa-spin');
-      info.textContent = 'Consultando cotizaciones (BNA, Divisa, Euro)...';
+      // El euro no se actualiza automáticamente: la fuente disponible no coincide con el billete, se carga a mano
+      info.textContent = 'Consultando cotizaciones (BNA y Divisa)...';
 
       const resultados = await Promise.allSettled([
         fetch('https://dolar-bna.vercel.app/api/cotizacion').then(r => r.json()),
-        fetch('https://dolarapi.com/v1/dolares/mayorista').then(r => r.json()),
-        fetch('https://dolarapi.com/v1/cotizaciones/eur').then(r => r.json())
+        fetch('https://dolarapi.com/v1/dolares/mayorista').then(r => r.json())
       ]);
 
-      const [vBNA, vDivisa, vEUR] = resultados.map(valorVenta);
+      const [vBNA, vDivisa] = resultados.map(valorVenta);
       const partesOk = [];
       if (vBNA !== null) { document.getElementById('metaTCBNA').value = vBNA; tipoCambioBNA = vBNA; partesOk.push(`BNA $${vBNA}`); }
       if (vDivisa !== null) { document.getElementById('metaTCDivisa').value = vDivisa; tipoCambioDivisa = vDivisa; partesOk.push(`Divisa $${vDivisa}`); }
-      if (vEUR !== null) { document.getElementById('metaTCEUR').value = vEUR; tipoCambioEUR = vEUR; partesOk.push(`Euro $${vEUR}`); }
 
       recalcularPresupuestoCompleto();
       btn.disabled = false;
